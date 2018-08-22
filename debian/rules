@@ -1,0 +1,36 @@
+#!/usr/bin/make -f
+
+PYTHONS:=$(shell pyversions -vr)
+
+include /usr/share/openstack-pkg-tools/pkgos.make
+export OSLO_PACKAGE_VERSION=$(VERSION)
+
+%:
+	dh $@ --buildsystem=python_distutils --with python2
+
+override_dh_auto_test:
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+	bash run_tests.sh -N --no-pep8
+	PYTHONPATH=. NOSE_WITH_OPENSTACK=1 \
+		NOSE_OPENSTACK_COLOR=1 \
+		NOSE_OPENSTACK_RED=0.05 \
+		NOSE_OPENSTACK_YELLOW=0.025 \
+		NOSE_OPENSTACK_SHOW_ELAPSED=1 \
+		DJANGO_SETTINGS_MODULE=manila_ui.tests.settings \
+		python-coverage run \
+		$(CURDIR)/manage.py test manila_ui --settings=manila_ui.tests.settings
+endif
+
+override_dh_clean:
+	dh_clean -O--buildsystem=python_distutils
+	rm -rf .coverage*
+
+override_dh_auto_install:
+	dh_auto_install -O--buildsystem=python_distutils
+	# Activates in the dashboard
+	set -e ; for pyvers in $(PYTHONS); do \
+		mkdir -p $(CURDIR)/debian/python-manila-ui/usr/lib/python$$pyvers/dist-packages/openstack_dashboard/enabled ; \
+		cp $(CURDIR)/manila_ui/local/enabled/_90* $(CURDIR)/debian/python-manila-ui/usr/lib/python$$pyvers/dist-packages/openstack_dashboard/enabled ; \
+	done
+	mkdir -p $(CURDIR)/debian/python-manila-ui/usr/share/openstack-dashboard/openstack_dashboard/enabled
+	cp $(CURDIR)/manila_ui/local/enabled/_90* $(CURDIR)/debian/python-manila-ui/usr/share/openstack-dashboard/openstack_dashboard/enabled
