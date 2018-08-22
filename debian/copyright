@@ -1,6 +1,6 @@
-Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: manila-ui
-Source: https://github.com/hp-storage/manila-ui
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: magnum-ui
+Source: https://github.com/openstack/magnum-ui
 
 Files: *
 Copyright: (c) 2013-2015, Hewlett-Packard Development Company, L.P.
