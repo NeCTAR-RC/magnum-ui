@@ -7,4 +7,4 @@ Last-Update: 2016-07-16
 --- /dev/null
 +++ manila-ui-2.1.0/MANIFEST.in
 @@ -0,0 +1,1 @@
-+recursive-include magnum_ui *.html *.scss *.js
++recursive-include magnum_ui *.html *.scss *.js *.po
