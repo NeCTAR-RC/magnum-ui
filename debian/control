@@ -19,7 +19,7 @@ Build-Depends-Indep:
  python-coverage (>= 4.0),
  python-ddt (>= 1.0.1),
  python-django (>= 1.8),
- python-django-compressor (>= 2.0),
+ python-django-compressor (>= 2.2),
  python-django-horizon,
  python-django-nose (>= 1.4.4),
  python-hacking (>= 0.12.0),
