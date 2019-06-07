@@ -1,0 +1,46 @@
+#!/usr/bin/make -f
+
+include /usr/share/openstack-pkg-tools/pkgos.make
+
+%:
+	dh $@ --buildsystem=python_distutils --with python3
+
+override_dh_clean:
+	dh_clean -O--buildsystem=python_distutils
+	rm -rf .coverage*
+
+override_dh_auto_clean:
+	python3 setup.py clean
+
+override_dh_auto_install:
+	echo "Do nothing..."
+
+override_dh_auto_build:
+	echo "Do nothing..."
+
+override_dh_auto_test:
+	echo "Do nothing..."
+
+override_dh_install:
+	pkgos-dh_auto_install --no-py2
+
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+	#bash run_tests.sh -N --no-pep8
+	set -e ; for i in $(PYTHON3S) ; do \
+		PYTHON=python3 PYTHONPATH=$(CURDIR)/debian/python3-manila-ui NOSE_WITH_OPENSTACK=1 \
+			NOSE_OPENSTACK_COLOR=1 \
+			NOSE_OPENSTACK_RED=0.05 \
+			NOSE_OPENSTACK_YELLOW=0.025 \
+			NOSE_OPENSTACK_SHOW_ELAPSED=1 \
+			DJANGO_SETTINGS_MODULE=manila_ui.tests.settings \
+			python$$i -m coverage run \
+			$(CURDIR)/manage.py test manila_ui.tests.api manila_ui.tests.dashboards -v 2 --settings=manila_ui.tests.settings ; \
+	done
+endif
+
+	mkdir -p $(CURDIR)/debian/python3-manila-ui/usr/lib/python3/dist-packages/openstack_dashboard/enabled
+	cp $(CURDIR)/manila_ui/local/enabled/_9* $(CURDIR)/debian/python3-manila-ui/usr/lib/python3/dist-packages/openstack_dashboard/enabled
+	cp $(CURDIR)/manila_ui/local/enabled/_8* $(CURDIR)/debian/python3-manila-ui/usr/lib/python3/dist-packages/openstack_dashboard/enabled
+
+	dh_install
+	dh_missing --fail-missing

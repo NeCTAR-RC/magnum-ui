@@ -1,0 +1,2 @@
+add-MANIFEST.in-to-package-missing-files.patch
+manage.py-using-py3.patch
