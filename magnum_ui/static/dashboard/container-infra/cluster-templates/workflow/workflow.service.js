@@ -110,10 +110,6 @@
             title: gettext('Public'),
             type: 'boolean'
           },
-          'hidden': {
-            title: gettext('Hidden'),
-            type: 'boolean'
-          },
           'registry_enabled': {
             title: gettext('Enable Registry'),
             type: 'boolean'
@@ -274,14 +270,12 @@
                       key: 'public'
                     },
                     {
-                      key: 'hidden'
-                    },
-                    {
                       key: 'registry_enabled'
                     },
                     {
                       key: 'tls_disabled'
                     }
+
                   ]
                 }
               ],
@@ -473,7 +467,6 @@
         coe: "",
         server_type: "",
         public: "",
-        hidden: "",
         registry_enabled: "",
         tls_disabled: "",
         image_id: "",
