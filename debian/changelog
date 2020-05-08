@@ -1,0 +1,5 @@
+magnum-ui (1:5.3.0-0ubuntu1~cloud0) bionic-train; urgency=medium
+
+  * New update for the Ubuntu Cloud Archive.
+
+ -- Openstack Ubuntu Testing Bot <openstack-testing-bot@ubuntu.com>  Fri, 11 Oct 2019 10:44:56 +0000
