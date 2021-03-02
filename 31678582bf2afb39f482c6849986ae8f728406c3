@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "adbbdc2e_193223af",
+        "filename": "magnum_ui/static/dashboard/container-infra/clusters/cluster-stats.controller.js",
+        "patchSetId": 1
+      },
+      "lineNbr": 82,
+      "author": {
+        "id": 1000002
+      },
+      "writtenOn": "2021-03-02T03:19:44Z",
+      "side": 1,
+      "message": "This will always change percent from 0 to 100 even if max\u003e0, which doesn\u0027t seem right? I suggest following the logic from your comment and testing `max` explicitly. :)",
+      "revId": "31678582bf2afb39f482c6849986ae8f728406c3",
+      "serverId": "f182a8af-62ca-4ceb-ab81-14f8fec9c6c5",
+      "unresolved": true
+    }
+  ]
+}
