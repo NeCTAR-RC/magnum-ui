@@ -74,12 +74,15 @@
     function onGetQuotaCluster(response) {
       // set data for clusters chart
       var sum = dataClusters[0].value;
-      var max = dataClusters[1].value;
-      if (response.data.hard_limit) {
-        max = response.data.hard_limit;
-        dataClusters[1].value = max - sum;
-      }
+      var max = response.data.hard_limit;
+      dataClusters[1].value = max - sum;
       var percent = Math.round(sum / max * 100);
+      // if quota = 0, percent will be NaN
+      // in this case, fake graph of 100% (1 exist, 0 margin)
+      if (max == 0) {
+        percent = 100;
+        dataClusters[0].value = 1;
+      }
       var overMax = percent > 100;
       ctrl.chartDataClusters = {
         title: gettext("Clusters"),
