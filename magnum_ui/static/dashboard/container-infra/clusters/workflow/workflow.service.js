@@ -163,13 +163,6 @@
                       templateUrl: basePath + 'clusters/workflow/cluster-template.html'
                     },
                     {
-                      key: 'availability_zone',
-                      type: 'select',
-                      title: gettext('Availability Zone'),
-                      titleMap: availabilityZoneTitleMap,
-                      required: true
-                    },
-                    {
                       key: 'keypair',
                       type: 'select',
                       title: gettext('Keypair'),
@@ -239,170 +232,6 @@
                           type: 'select',
                           titleMap: workerFlavorTitleMap,
                           required: true
-                        }
-                      ]
-                    },
-                    {
-                      type: 'fieldset',
-                      title: gettext('Auto Scaling'),
-                      items: [
-                        {
-                          key: 'auto_scaling_enabled',
-                          type: 'checkbox',
-                          title: gettext('Auto-scale Worker Nodes'),
-                          onChange: function(isAutoScaling) {
-                            // Reset dependant model fields to defaults first
-                            model.min_node_count = MODEL_DEFAULTS.min_node_count;
-                            model.max_node_count = MODEL_DEFAULTS.max_node_count;
-
-                            if (isAutoScaling) { autosetScalingModelValues(); }
-                          }
-                        },
-                        {
-                          key: 'min_node_count',
-                          title: gettext('Minimum Number of Worker Nodes'),
-                          placeholder: gettext('Minimum Number of Worker Nodes'),
-                          validationMessage: {
-                            101: gettext('You cannot auto-scale to less than ' +
-                              'a single Worker Node.'),
-                            103: gettext('The minimum number of Worker Nodes a ' +
-                              'new cluster can auto scale to cannot exceed the ' +
-                              'total amount of Worker Nodes.'),
-                            maximumExceeded: gettext('A minimum number of Worker ' +
-                              'Nodes cannot be higher than the default number of Worker Nodes.')
-                          },
-                          $validators: {
-                            maximumExceeded: function(minNodeCount) {
-                              return !model.node_count || minNodeCount <= model.node_count;
-                            }
-                          },
-                          condition: 'model.auto_scaling_enabled === true',
-                          required: true
-                        },
-                        {
-                          key: 'max_node_count',
-                          title: gettext('Maximum number of Worker Nodes'),
-                          placeholder: gettext('Maximum number of Worker Nodes'),
-                          validationMessage: {
-                            101: gettext('The maximum number of Worker Nodes a new cluster ' +
-                              'can auto-scale to cannot be less than the total amount of ' +
-                              'Worker Nodes.'),
-                            minimumExceeded: gettext('The maximum number of Worker Nodes cannot ' +
-                              'be less than the default number of Worker Nodes and 1.')
-                          },
-                          $validators: {
-                            minimumExceeded: function(maxNodeCount) {
-                              return maxNodeCount > 0 && (!model.node_count ||
-                                maxNodeCount >= model.node_count);
-                            }
-                          },
-                          condition: 'model.auto_scaling_enabled === true',
-                          required: true
-                        }
-                      ]
-                    }
-
-                  ]
-                }
-              ]
-            },
-            {
-              title: gettext('Network'),
-              help: basePath + 'clusters/workflow/network.help.html',
-              type: 'section',
-              htmlClass: 'row',
-              required: true,
-              items: [
-                {
-                  type: 'section',
-                  htmlClass: 'col-md-8',
-                  items: [
-                    {
-                      type: 'fieldset',
-                      title: gettext('Network'),
-                      items: [
-                        {
-                          key: 'master_lb_enabled',
-                          type: 'checkbox',
-                          title: gettext('Enable Load Balancer for Master Nodes')
-                        },
-                        {
-                          key: 'create_network',
-                          title: gettext('Create New Network'),
-                          onChange: function(isNewNetwork) {
-                            if (isNewNetwork) {
-                              model.fixed_network = MODEL_DEFAULTS.fixed_network;
-                            }
-                          }
-                        },
-                        {
-                          key: 'fixed_network',
-                          type: 'select',
-                          title: gettext('Use an Existing Network'),
-                          titleMap: networkTitleMap,
-                          condition: 'model.create_network === false',
-                          required: true
-                        }
-                      ]
-                    },
-                    {
-                      type: 'fieldset',
-                      title: gettext('Network Access Control'),
-                      items: [
-                        {
-                          key: 'floating_ip_enabled',
-                          type: 'select',
-                          title: gettext('Cluster API'),
-                          titleMap: [
-                            {value: false, name: gettext('Accessible on private network only')},
-                            {value: true, name: gettext('Accessible on the public internet')}
-                          ]
-                        },
-                        // Warning message for the Cluster API
-                        {
-                          type: 'template',
-                          template: '<div class="alert alert-warning">' +
-                            '<span class="fa fa-warning"></span> ' +
-                            gettext('It is generally not recommended to give public access.') +
-                            '</div>',
-                          condition: 'model.floating_ip_enabled == true'
-                        }
-                      ]
-                    },
-                    {
-                      type: 'fieldset',
-                      title: gettext('Ingress'),
-                      items: [
-                        {
-                          key: 'ingress_controller',
-                          title: gettext('Ingress Controller'),
-                          type: 'select',
-                          titleMap: ingressTitleMap
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              title: gettext('Management'),
-              help: basePath + 'clusters/workflow/management.help.html',
-              type: 'section',
-              htmlClass: 'row',
-              items: [
-                {
-                  type: 'section',
-                  htmlClass: 'col-md-8',
-                  items: [
-                    {
-                      type: 'fieldset',
-                      title: gettext('Auto Healing'),
-                      items: [
-                        {
-                          key: 'auto_healing_enabled',
-                          type: 'checkbox',
-                          title: gettext('Automatically Repair Unhealthy Nodes')
                         }
                       ]
                     }
@@ -483,7 +312,7 @@
           min_node_count: null,
           max_node_count: null,
 
-          master_lb_enabled: false,
+          master_lb_enabled: true,
           create_network: true,
           fixed_network: '',
           floating_ip_enabled: false,

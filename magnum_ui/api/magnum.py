@@ -165,6 +165,7 @@ def cluster_template_show(request, id):
 def cluster_create(request, **kwargs):
     kwargs.pop("rollback")
     args = _cleanup_params(CLUSTER_CREATE_ATTRS, True, **kwargs)
+    args.pop('labels', None)
     return magnumclient(request).clusters.create(**args)
 
 
