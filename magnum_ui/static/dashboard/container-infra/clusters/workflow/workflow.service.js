@@ -168,13 +168,6 @@
                       title: gettext('Keypair'),
                       titleMap: keypairsTitleMap,
                       required: true,
-                    },
-                    {
-                      key: 'addons',
-                      type: 'checkboxes',
-                      title: gettext('Addon Software'),
-                      disableSuccessState: true,
-                      titleMap: addonsTitleMap
                     }
                   ]
                 }
