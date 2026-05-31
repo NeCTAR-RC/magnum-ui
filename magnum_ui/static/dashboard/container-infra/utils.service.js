@@ -28,8 +28,25 @@
    */
   function utilsService() {
     return {
-      versionCompare: versionCompare
+      versionCompare: versionCompare,
+      parseTemplateName: parseTemplateName
     };
+
+    // Parse a cluster template name of the form
+    //   kubernetes-v{k8sVersion}-{availabilityZone}-{networkDriver}-v{templateVersion}
+    // The availability zone may itself contain dashes (e.g. 'melbourne-qh2'); the
+    // k8s version and network driver do not. Returns null for names that do not
+    // follow the convention, so callers can filter them out.
+    function parseTemplateName(name) {
+      var match = /^kubernetes-v([^-]+)-(.+)-([^-]+)-v(.+)$/.exec(name);
+      if (!match) { return null; }
+      return {
+        k8sVersion: match[1],
+        availabilityZone: match[2],
+        networkDriver: match[3],
+        templateVersion: match[4]
+      };
+    }
 
     function versionCompare(v1, v2, options) {
       var lexicographical = options && options.lexicographical;

@@ -37,20 +37,17 @@
     'horizon.dashboard.container-infra.basePath',
     'horizon.framework.util.i18n.gettext',
     'horizon.app.core.openstack-service-api.magnum',
-    'horizon.app.core.openstack-service-api.neutron',
-    'horizon.app.core.openstack-service-api.nova'
+    'horizon.app.core.openstack-service-api.nova',
+    'horizon.dashboard.container-infra.utils.service'
   ];
 
   // comma-separated key=value with optional space after comma
   var REGEXP_KEY_VALUE = /^(\w+=[^,]+,?\s?)+$/;
 
-  // Comma-separated CIDR list. Allows lots of variation to include v4 and v6.
-  var REGEXP_CIDR_LIST = /^[a-f0-9\.:]+\/[0-9]+(,\s?[a-f0-9\.:]+\/[0-9]+)*$/;
-
   // Object name, must start with alphabetical character.
   var REGEXP_CLUSTER_NAME = /^[a-zA-Z][a-zA-Z0-9_\-\.]*$/;
 
-  function ClusterWorkflow($q, basePath, gettext, magnum, neutron, nova) {
+  function ClusterWorkflow($q, basePath, gettext, magnum, nova, utils) {
     var workflow = {
       init: init
     };
@@ -58,18 +55,19 @@
     function init(title, $scope) {
       var schema, form;
 
-      var fixedSubnetsInitial = gettext('Choose an existing subnet');
-      // Default <option>s; will be shown in selector as a placeholder
-      var templateTitleMap = [{value: '', name: gettext('Choose a Cluster Template') }];
-      var availabilityZoneTitleMap = [{value: '',
-        name: gettext('Choose an Availability Zone')}];
+      // Default <option>s; will be shown in selector as a placeholder.
+      // These three selectors cascade to derive a (hidden) cluster template.
+      var k8sVersionPlaceholder = gettext('Choose a Kubernetes Version');
+      var availabilityZonePlaceholder = gettext('Choose an Availability Zone');
+      var networkDriverPlaceholder = gettext('Choose a Network Driver');
+      var k8sVersionTitleMap = [{value: '', name: k8sVersionPlaceholder}];
+      var availabilityZoneTitleMap = [{value: '', name: availabilityZonePlaceholder}];
+      var networkDriverTitleMap = [{value: '', name: networkDriverPlaceholder}];
       var keypairsTitleMap = [{value: '', name: gettext('Choose a Keypair')}];
       var masterFlavorTitleMap = [{value: '',
         name: gettext('Choose a Flavor for the Control Plane nodes')}];
       var workerFlavorTitleMap = [{value: '',
         name: gettext('Choose a Flavor for the Worker nodes')}];
-      var networkTitleMap = [{value: '', name: gettext('Choose an existing network')}];
-      var subnetTitleMap = [{value: '', name: fixedSubnetsInitial}];
       var ingressTitleMap = [{value: '', name: gettext('Choose an ingress controller')}];
 
       var addonsTitleMap = [];
@@ -77,12 +75,17 @@
       var MODEL_DEFAULTS = getModelDefaults();
       var model = getModelDefaults();
 
+      // Parsed + filtered cluster templates, indexed for the cascade/derivation.
+      var parsedTemplates = [];
+
       schema = {
         type: 'object',
         properties: {
           'name': { type: 'string' },
           'cluster_template_id': { type: 'string' },
+          'k8s_version': { type: 'string' },
           'availability_zone': { type: 'string' },
+          'network_driver': { type: 'string' },
           'keypair': { type: 'string' },
           'addons': {
             type: 'array',
@@ -148,6 +151,34 @@
         },
         true);
 
+      // Cascading selectors that together derive the (hidden) cluster template.
+      // References are held so their `titleMap` can be rebuilt in place by the
+      // onChange handlers, without relying on brittle form[] index chains.
+      var k8sVersionField = {
+        key: 'k8s_version',
+        type: 'select',
+        title: gettext('Kubernetes Version'),
+        titleMap: k8sVersionTitleMap,
+        required: true,
+        onChange: function() { changeK8sVersion(); }
+      };
+      var availabilityZoneField = {
+        key: 'availability_zone',
+        type: 'select',
+        title: gettext('Availability Zone'),
+        titleMap: availabilityZoneTitleMap,
+        required: true,
+        onChange: function() { changeAvailabilityZone(); }
+      };
+      var networkDriverField = {
+        key: 'network_driver',
+        type: 'select',
+        title: gettext('Network Driver'),
+        titleMap: networkDriverTitleMap,
+        required: true,
+        onChange: function() { changeNetworkDriver(); }
+      };
+
       form = [
         {
           type:'tabs',
@@ -180,14 +211,10 @@
                         }
                       }
                     },
-                    {
-                      key: 'cluster_template_id',
-                      type: 'select',
-                      title: gettext('Cluster Template'),
-                      titleMap: templateTitleMap,
-                      required: true
-                    },
-                    // Details of the chosen Cluster Template
+                    k8sVersionField,
+                    availabilityZoneField,
+                    networkDriverField,
+                    // Summary of the derived cluster configuration
                     {
                       type: 'template',
                       templateUrl: basePath + 'clusters/workflow/cluster-template.html'
@@ -336,7 +363,9 @@
           // Props used by the form
           name: '',
           cluster_template_id: '',
+          k8s_version: '',
           availability_zone: '',
+          network_driver: '',
           keypair: '',
           addons: [],
 
@@ -403,17 +432,6 @@
         }
       }
 
-      function onGetAvailabilityZones(response) {
-        angular.forEach(response.data.items, function(availabilityZone) {
-          availabilityZoneTitleMap.push({
-            value: availabilityZone.zoneName,
-            name: availabilityZone.zoneName
-          });
-        });
-
-        setSingleItemAsDefault(response.data.items, 'availability_zone', 'zoneName');
-      }
-
       function onGetAddons(response) {
         angular.forEach(response.data.addons, function(addon) {
           addonsTitleMap.push({ value: addon, name: addon.name });
@@ -429,40 +447,129 @@
         });
       }
 
+      // Parse the template names, keep only conforming (kubernetes) templates, and
+      // seed the top of the cascade. The user never sees the templates themselves.
       function onGetClusterTemplates(response) {
         angular.forEach(response.data.items, function(clusterTemplate) {
-          templateTitleMap.push({value: clusterTemplate.id, name: clusterTemplate.name});
+          var parsed = utils.parseTemplateName(clusterTemplate.name);
+          if (!parsed) { return; }
+          parsedTemplates.push({
+            id: clusterTemplate.id,
+            name: clusterTemplate.name,
+            k8sVersion: parsed.k8sVersion,
+            availabilityZone: parsed.availabilityZone,
+            // Prefer the template's real network_driver; the parsed value is only
+            // positionally correct when the driver contains no dashes.
+            networkDriver: clusterTemplate.network_driver || parsed.networkDriver,
+            templateVersion: parsed.templateVersion
+          });
+        });
+        rebuildK8sVersionOptions();
+      }
+
+      // Rebuild a titleMap in place (keeping its array reference, which the rendered
+      // <select> watches) from a placeholder and a list of values.
+      function setTitleMapOptions(titleMap, placeholder, values) {
+        titleMap.length = 0;
+        titleMap.push({value: '', name: placeholder});
+        values.forEach(function(value) {
+          titleMap.push({value: value, name: value});
         });
       }
 
-      function onGetNetworks(response) {
-        angular.forEach(response.data.items, function(network) {
-          networkTitleMap.push({
-            value: network.id,
-            name: network.name + ' (' + network.id + ')',
-            subnets: network.subnets
-          });
+      function distinctValues(list) {
+        var seen = {};
+        var result = [];
+        list.forEach(function(value) {
+          if (!Object.prototype.hasOwnProperty.call(seen, value)) {
+            seen[value] = true;
+            result.push(value);
+          }
         });
-
-        setSingleItemAsDefault(response.data.items, 'fixed_network', 'id');
+        return result;
       }
 
-      function changeFixedNetwork(model) {
-        if (model.fixed_network) {
-          subnetTitleMap = [{value: "", name: gettext("Choose an existing Subnet")}];
-          angular.forEach(networkTitleMap, function(network) {
-            if (network.value === model.fixed_network) {
-              angular.forEach(network.subnets, function(subnet) {
-                subnetTitleMap.push({value: subnet.id, name: subnet.name});
-              });
-            }
-          });
-        } else {
-          fixedSubnets = [{value: "", name: fixedSubnetsInitial}];
+      function compareStrings(first, second) {
+        return first.localeCompare(second);
+      }
+
+      // Top of the cascade: distinct k8s versions, newest first.
+      function rebuildK8sVersionOptions() {
+        var versions = distinctValues(parsedTemplates.map(function(template) {
+          return template.k8sVersion;
+        }));
+        versions.sort(function(first, second) {
+          return utils.versionCompare(second, first);
+        });
+        setTitleMapOptions(k8sVersionTitleMap, k8sVersionPlaceholder, versions);
+        if (versions.length === 1) {
+          model.k8s_version = versions[0];
+          changeK8sVersion();
         }
-        // NOTE(dalees): This hardcoded index could be improved by referencing an object instead.
-        form[0].tabs[2].items[0].items[0].items[2].titleMap = subnetTitleMap;
-        model.fixed_subnet = MODEL_DEFAULTS.fixed_subnet;
+      }
+
+      // k8s version chosen -> narrow availability zones, reset lower selections.
+      function changeK8sVersion() {
+        var zones = distinctValues(parsedTemplates.filter(function(template) {
+          return template.k8sVersion === model.k8s_version;
+        }).map(function(template) {
+          return template.availabilityZone;
+        }));
+        zones.sort(compareStrings);
+        setTitleMapOptions(availabilityZoneTitleMap, availabilityZonePlaceholder, zones);
+        setTitleMapOptions(networkDriverTitleMap, networkDriverPlaceholder, []);
+        model.availability_zone = MODEL_DEFAULTS.availability_zone;
+        model.network_driver = MODEL_DEFAULTS.network_driver;
+        model.cluster_template_id = MODEL_DEFAULTS.cluster_template_id;
+        if (zones.length === 1) {
+          model.availability_zone = zones[0];
+          changeAvailabilityZone();
+        }
+      }
+
+      // Availability zone chosen -> narrow network drivers, reset lower selections.
+      function changeAvailabilityZone() {
+        var drivers = distinctValues(parsedTemplates.filter(function(template) {
+          return template.k8sVersion === model.k8s_version &&
+            template.availabilityZone === model.availability_zone;
+        }).map(function(template) {
+          return template.networkDriver;
+        }));
+        drivers.sort(compareStrings);
+        setTitleMapOptions(networkDriverTitleMap, networkDriverPlaceholder, drivers);
+        model.network_driver = MODEL_DEFAULTS.network_driver;
+        model.cluster_template_id = MODEL_DEFAULTS.cluster_template_id;
+        if (drivers.length === 1) {
+          model.network_driver = drivers[0];
+          changeNetworkDriver();
+        }
+      }
+
+      // Network driver chosen -> derive the matching cluster template.
+      function changeNetworkDriver() {
+        deriveClusterTemplate();
+      }
+
+      // Find the template matching all three selections, preferring the highest
+      // template version. Setting cluster_template_id triggers the
+      // clusterTemplateController watcher, which populates the remaining defaults.
+      function deriveClusterTemplate() {
+        var matches = parsedTemplates.filter(function(template) {
+          return template.k8sVersion === model.k8s_version &&
+            template.availabilityZone === model.availability_zone &&
+            template.networkDriver === model.network_driver;
+        });
+        if (!matches.length) {
+          model.cluster_template_id = MODEL_DEFAULTS.cluster_template_id;
+          return;
+        }
+        matches.sort(function(first, second) {
+          var compared = utils.versionCompare(second.templateVersion, first.templateVersion);
+          return isNaN(compared)
+            ? second.templateVersion.localeCompare(first.templateVersion)
+            : compared;
+        });
+        model.cluster_template_id = matches[0].id;
       }
 
       function onGetIngressControllers(response) {
@@ -478,12 +585,6 @@
         }
       }
 
-      function setSingleItemAsDefault(itemsList, modelKey, itemKey) {
-        if (itemsList.length === 1) {
-          model[modelKey] = itemsList[0][itemKey];
-        }
-      }
-
       $scope.$on('$destroy', function() {
         isSingleMasterNodeWatcher();
       });
@@ -492,9 +593,7 @@
       // with a form configuration object.
       return $q.all([
         magnum.getClusterTemplates().then(onGetClusterTemplates),
-        nova.getAvailabilityZones().then(onGetAvailabilityZones),
         nova.getKeypairs().then(onGetKeypairs),
-        neutron.getNetworks().then(onGetNetworks),
         magnum.getAddons().then(onGetAddons),
         nova.getFlavors(false, false).then(onGetFlavors),
         magnum.getIngressControllers().then(onGetIngressControllers)

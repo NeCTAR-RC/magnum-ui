@@ -38,5 +38,42 @@
       expect(service.versionCompare('12.1.2','1.3.2')).toBe(1);
       expect(service.versionCompare('1.3.2','1.3.11')).toBe(-1);
     });
+
+    it('should parse a conforming cluster template name', function() {
+      expect(service.parseTemplateName('kubernetes-v1.15.6-prod-calico-v3')).toEqual({
+        k8sVersion: '1.15.6',
+        availabilityZone: 'prod',
+        networkDriver: 'calico',
+        templateVersion: '3'
+      });
+    });
+
+    it('should parse an availability zone that contains dashes', function() {
+      expect(service.parseTemplateName('kubernetes-v1.27.4-melbourne-qh2-calico-v3'))
+        .toEqual({
+          k8sVersion: '1.27.4',
+          availabilityZone: 'melbourne-qh2',
+          networkDriver: 'calico',
+          templateVersion: '3'
+        });
+    });
+
+    it('should parse a dotted template version', function() {
+      expect(service.parseTemplateName('kubernetes-v1.27.4-melbourne-qh2-calico-v1.2'))
+        .toEqual({
+          k8sVersion: '1.27.4',
+          availabilityZone: 'melbourne-qh2',
+          networkDriver: 'calico',
+          templateVersion: '1.2'
+        });
+    });
+
+    it('should return null for names that do not follow the convention', function() {
+      expect(service.parseTemplateName('swarm-v1.0-prod-docker-v1')).toBeNull();
+      expect(service.parseTemplateName('random-name')).toBeNull();
+      expect(service.parseTemplateName('')).toBeNull();
+      // Missing the trailing -v{templateVersion} segment.
+      expect(service.parseTemplateName('kubernetes-v1.0-prod-calico')).toBeNull();
+    });
   });
 })();

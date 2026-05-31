@@ -48,8 +48,7 @@
         registry_enabled: "",
         tls_disabled: "",
         apiserver_port: "",
-        keypair_id: "",
-        docker_volume_size: ""
+        keypair_id: ""
       };
     }
 

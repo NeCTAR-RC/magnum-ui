@@ -122,7 +122,8 @@
       }
 
       // 2) Create Workflow Form labels
-      requestLabels.availability_zone = model.availability_zone;
+      // NOTE: The availability zone is encoded in (and pinned by) the derived
+      // cluster template, so it is no longer sent as a separate label.
       requestLabels.auto_scaling_enabled = model.auto_scaling_enabled;
       requestLabels.auto_healing_enabled = model.auto_healing_enabled;
       requestLabels.master_lb_floating_ip_enabled = model.master_lb_floating_ip_enabled;
