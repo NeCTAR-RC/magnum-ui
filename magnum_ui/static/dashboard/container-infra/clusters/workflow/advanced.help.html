@@ -1,5 +1,5 @@
-<h1 class="h4" translate>Additional Labels</h1>
+<h1 class="h4" translate>etcd Storage</h1>
 
-<p translate>Specify additional labels to apply to the cluster or override labels set by the cluster template. Overriding labels set by the cluster template may result in your cluster being misconfigured, unstable or unable to be created.</p>
+<p translate>By default etcd shares the root volume of the control plane nodes. Enable "Store etcd on a separate volume" to provision a dedicated volume for etcd, which can improve performance and reliability.</p>
 
-<p translate>The key=value pair string is case insensitive and will be converted to lower case.</p>
+<p translate>When enabled, set the size (in GB) of the etcd volume. Optionally choose a Cinder volume type; if left blank, the standard volume type is used.</p>

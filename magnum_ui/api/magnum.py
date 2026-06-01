@@ -35,6 +35,9 @@ CLUSTER_CREATE_ATTRS = clusters.CREATION_ATTRIBUTES
 CERTIFICATE_CREATE_ATTRS = certificates.CREATION_ATTRIBUTES
 QUOTA_CREATION_ATTRIBUTES = quotas.CREATION_ATTRIBUTES
 CLUSTER_UPDATE_ALLOWED_PROPERTIES = set(['/node_count'])
+# Labels that may be set from the cluster create workflow. All other labels are
+# inherited from the cluster template.
+CLUSTER_CREATE_LABELS = ('etcd_volume_size', 'etcd_blockdevice_volume_type')
 DEFAULT_API_VERSION = '1.10'
 
 
@@ -165,7 +168,17 @@ def cluster_template_show(request, id):
 def cluster_create(request, **kwargs):
     kwargs.pop("rollback")
     args = _cleanup_params(CLUSTER_CREATE_ATTRS, True, **kwargs)
-    args.pop('labels', None)
+    # Only pass through the curated create-workflow labels (Magnum stores label
+    # values as strings) and merge them over the cluster template's labels,
+    # rather than dropping every label.
+    labels = args.get('labels') or {}
+    create_labels = {key: str(labels[key]) for key in CLUSTER_CREATE_LABELS
+                     if labels.get(key) not in (None, '')}
+    if create_labels:
+        args['labels'] = create_labels
+        args['merge_labels'] = True
+    else:
+        args.pop('labels', None)
     return magnumclient(request).clusters.create(**args)
 
 

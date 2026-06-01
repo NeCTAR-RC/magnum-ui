@@ -114,7 +114,7 @@
         addFieldToRequestObjectIfSet('fixed_subnet','fixed_subnet');
       }
       // Labels processing order (the following overrides previous):
-      // Cluster Templates -> Create Form -> User-defined in 'labels' textarea
+      // Cluster Templates -> Create Form
 
       // 1) Cluster Templates labels
       if (model.templateLabels) {
@@ -136,6 +136,15 @@
         requestLabels.max_node_count = model.max_node_count;
       }
 
+      // Store etcd on a separate volume, if requested by the user.
+      if (model.etcd_separate_volume) {
+        requestLabels.etcd_volume_size = model.etcd_volume_size;
+        // Volume type is optional; if unset, the standard volume type is used.
+        if (model.etcd_blockdevice_volume_type) {
+          requestLabels.etcd_blockdevice_volume_type = model.etcd_blockdevice_volume_type;
+        }
+      }
+
       // 2A) Labels from user-selected addons
       angular.forEach(model.addons, function(addon) {
         angular.extend(requestLabels, addon.labels);
@@ -143,30 +152,6 @@
       // 2B) Labels from user-selected ingress controller
       if (model.ingress_controller && model.ingress_controller.labels) {
         angular.extend(requestLabels, model.ingress_controller.labels);
-      }
-
-      // 3) User-defined Custom labels
-      // Parse all labels comma-separated key=value pairs and inject them into request object
-      if (model.labels !== MODEL_DEFAULTS.labels) {
-        try {
-          model.labels.split(',').forEach(function(kvPair) {
-            var pairsList = kvPair.split('=');
-
-            // Remove leading and trailing whitespaces & convert to l-case
-            var labelKey = pairsList[0].trim().toLowerCase();
-            var labelValue = pairsList[1].trim().toLowerCase();
-
-            if (labelValue) {
-              // Only override existing label values if user override flag is true
-              if (!requestLabels.hasOwnProperty(labelKey) || model.override_labels) {
-                requestLabels[labelKey] = labelValue;
-              }
-            }
-          });
-        } catch (err) {
-          toast.add('error', gettext('Unable to process `Additional Labels`. ' +
-            'Not all labels will be applied.'));
-        }
       }
 
       // Only add to the request Object if set (= not default)

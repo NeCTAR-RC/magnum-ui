@@ -41,9 +41,6 @@
     'horizon.dashboard.container-infra.utils.service'
   ];
 
-  // comma-separated key=value with optional space after comma
-  var REGEXP_KEY_VALUE = /^(\w+=[^,]+,?\s?)+$/;
-
   // Object name, must start with alphabetical character.
   var REGEXP_CLUSTER_NAME = /^[a-zA-Z][a-zA-Z0-9_\-\.]*$/;
 
@@ -121,8 +118,12 @@
 
           'auto_healing_enabled': { type: 'boolean' },
 
-          'labels': { type: 'string' },
-          'override_labels': { type: 'boolean' }
+          'etcd_separate_volume': { type: 'boolean' },
+          'etcd_volume_size': {
+            type: 'number',
+            minimum: 1
+          },
+          'etcd_blockdevice_volume_type': { type: 'string' }
         }
       };
 
@@ -314,39 +315,27 @@
                   items: [
                     {
                       type: 'fieldset',
-                      title: gettext('Labels'),
+                      title: gettext('etcd Storage'),
                       items: [
                         {
-                          key: 'labels',
-                          type: 'textarea',
-                          title: gettext('Additional Labels'),
-                          placeholder: gettext('key=value,key2=value2...'),
-                          validationMessage: {
-                            invalidFormat: gettext('Invalid format. Must be a comma-separated ' +
-                              'key-value string: key=value,key2=value2')
-                          },
-                          $validators: {
-                            invalidFormat: function(labelsString) {
-                              return labelsString === '' || REGEXP_KEY_VALUE.test(labelsString);
-                            }
-                          },
-                          disableSuccessState: true
-                        },
-                        {
-                          key: 'override_labels',
+                          key: 'etcd_separate_volume',
                           type: 'checkbox',
-                          title: gettext('I do want to override Template and Workflow Labels'),
-                          condition: 'model.labels !== ""',
+                          title: gettext('Store etcd on a separate volume')
                         },
-                        // Warning message for the label override
                         {
-                          type: 'template',
-                          template: '<div class="alert alert-warning">' +
-                            '<span class="fa fa-warning"></span> ' +
-                            gettext('Overriding labels already defined by the cluster ' +
-                            'template or workflow might result in unpredictable ' +
-                            'behaviour.') + '</div>',
-                          condition: 'model.override_labels == true'
+                          key: 'etcd_volume_size',
+                          title: gettext('etcd Volume Size (GB)'),
+                          placeholder: gettext('Size of the etcd volume in GB'),
+                          condition: 'model.etcd_separate_volume == true',
+                          required: true
+                        },
+                        {
+                          key: 'etcd_blockdevice_volume_type',
+                          title: gettext('etcd Volume Type'),
+                          placeholder: gettext('Cinder volume type for the etcd volume'),
+                          description: gettext('Optional. If left blank, the standard ' +
+                            'volume type is used.'),
+                          condition: 'model.etcd_separate_volume == true'
                         }
                       ]
                     }
@@ -386,8 +375,9 @@
           ingress_controller: '',
 
           auto_healing_enabled: true,
-          labels: '',
-          override_labels: false,
+          etcd_separate_volume: false,
+          etcd_volume_size: null,
+          etcd_blockdevice_volume_type: '',
 
           // Utility properties (not actively used in the form,
           // populated dynamically)

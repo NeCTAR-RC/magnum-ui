@@ -24,15 +24,16 @@
 
     var model = {
       id: 1,
-      labels: 'key1=value1,key2=value2',
       auto_scaling_enabled: true,
       templateLabels: {key1:'default value'},
-      override_labels: true,
+      etcd_separate_volume: true,
+      etcd_volume_size: 20,
+      etcd_blockdevice_volume_type: 'b1.standard',
       master_count: 1,
       create_network: true,
       addons: [{labels:{}},{labels:{}}],
       ingress_controller: {labels:{ingress_controller:''}},
-      DEFAULTS: {labels:''}
+      DEFAULTS: {}
     };
     var modal = {
       open: function(config) {
@@ -94,6 +95,10 @@
         $timeout(function() {
           expect(modal.open).toHaveBeenCalled();
           expect(magnum.createCluster).toHaveBeenCalled();
+          // etcd-on-separate-volume selections are sent as labels
+          var labels = magnum.createCluster.calls.argsFor(0)[0].labels;
+          expect(labels.etcd_volume_size).toBe(20);
+          expect(labels.etcd_blockdevice_volume_type).toBe('b1.standard');
           // Check if the form's model skeleton is correct
           expect(modalConfig.model).toBeDefined();
           expect(modalConfig.schema).toBeDefined();
@@ -106,13 +111,31 @@
         $scope.$apply();
       }));
 
+    it('should omit the etcd volume type label when it is left blank',
+      inject(function($timeout) {
+        model.etcd_separate_volume = true;
+        model.etcd_volume_size = 30;
+        model.etcd_blockdevice_volume_type = '';
+
+        service.perform(null, $scope);
+
+        $timeout(function() {
+          var labels = magnum.createCluster.calls.argsFor(0)[0].labels;
+          expect(labels.etcd_volume_size).toBe(30);
+          expect(labels.hasOwnProperty('etcd_blockdevice_volume_type')).toBe(false);
+        }, 0);
+
+        $httpBackend.expectGET('/static/dashboard/container-infra/clusters/panel.html').respond({});
+        $timeout.flush();
+        $scope.$apply();
+      }));
+
     it('should not crash unexpectedly with empty form model', inject(function($timeout) {
       model.auto_scaling_enabled = null;
       model.templateLabels = null;
-      model.override_labels = null;
       model.create_network = null;
       model.addons = null;
-      model.labels = 'invalid label';
+      model.etcd_separate_volume = null;
 
       service.perform(null, $scope);
 
