@@ -41,14 +41,47 @@
   ) {
     registry.getResourceType(resourceType)
       .setLoadFunction(loadFunction)
-      .detailsViews.append({
+      .detailsViews
+      .append({
         id: 'clusterDetailsOverview',
         name: gettext('Overview'),
         template: basePath + 'details/overview.html'
+      })
+      .append({
+        id: 'clusterDetailsNodegroups',
+        name: gettext('Node Groups'),
+        template: basePath + 'details/nodegroups.html'
+      });
+
+    // Node groups have their own detail page, identified by both the cluster id
+    // and the node group id (encoded in the URL path as "clusterId/nodegroupId").
+    registry.getResourceType('OS::Magnum::NodeGroup')
+      .setNames(gettext('Node Group'), gettext('Node Groups'))
+      .setDefaultIndexUrl('/project/clusters/')
+      .setLoadFunction(loadNodegroup)
+      .setPathParser(parseNodegroupPath)
+      .setPathGenerator(generateNodegroupPath)
+      .detailsViews.append({
+        id: 'nodegroupDetailsOverview',
+        name: gettext('Overview'),
+        template: basePath + 'nodegroups/overview.html'
       });
 
     function loadFunction(identifier) {
       return magnum.getCluster(identifier);
+    }
+
+    function loadNodegroup(identifier) {
+      return magnum.getNodegroup(identifier.clusterId, identifier.nodegroupId);
+    }
+
+    function parseNodegroupPath(path) {
+      var parts = path.split('/');
+      return {clusterId: parts[0], nodegroupId: parts[1]};
+    }
+
+    function generateNodegroupPath(item) {
+      return item.cluster_id + '/' + item.id;
     }
   }
 

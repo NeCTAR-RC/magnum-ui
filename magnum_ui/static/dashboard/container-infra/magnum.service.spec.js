@@ -139,6 +139,60 @@
         ]
       },
       {
+        "func": "getNodegroups",
+        "method": "get",
+        "path": "/api/container_infra/clusters/123/nodegroups/",
+        "error": "Unable to retrieve the node groups.",
+        "testInput": ["123"]
+      },
+      {
+        "func": "getNodegroup",
+        "method": "get",
+        "path": "/api/container_infra/clusters/123/nodegroups/456",
+        "error": "Unable to retrieve the node group.",
+        "testInput": ["123", "456"]
+      },
+      {
+        "func": "createNodegroup",
+        "method": "post",
+        "path": "/api/container_infra/clusters/123/nodegroups/",
+        "data": {
+          "name": "ng1"
+        },
+        "error": "Unable to create node group.",
+        "testInput": [
+          "123",
+          {
+            "name": "ng1"
+          }
+        ]
+      },
+      {
+        "func": "updateNodegroup",
+        "method": "patch",
+        "path": "/api/container_infra/clusters/123/nodegroups/456",
+        "data": {
+          "min_node_count": 1,
+          "max_node_count": 5
+        },
+        "error": "Unable to update node group.",
+        "testInput": [
+          "123",
+          "456",
+          {
+            "min_node_count": 1,
+            "max_node_count": 5
+          }
+        ]
+      },
+      {
+        "func": "deleteNodegroup",
+        "method": "delete",
+        "path": "/api/container_infra/clusters/123/nodegroups/456",
+        "error": "Unable to delete the node group with id: 456",
+        "testInput": ["123", "456"]
+      },
+      {
         "func": "createClusterTemplate",
         "method": "post",
         "path": "/api/container_infra/cluster_templates/",

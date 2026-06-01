@@ -300,6 +300,70 @@ class ClusterUpgrade(generic.View):
 
 
 @urls.register
+class NodeGroups(generic.View):
+    """API for Magnum node groups of a cluster"""
+    url_regex = r'container_infra/clusters/(?P<cluster_id>[^/]+)/nodegroups/$'
+
+    @rest_utils.ajax()
+    def get(self, request, cluster_id):
+        """Get the list of node groups for a cluster.
+
+        The returned result is an object with property 'items' and each
+        item under this is a node group.
+        """
+        result = magnum.nodegroup_list(request, cluster_id)
+        return {'items': [change_to_id(n.to_dict()) for n in result]}
+
+    @rest_utils.ajax(data_required=True)
+    def post(self, request, cluster_id):
+        """Create a new node group for a cluster.
+
+        Returns the new node group object on success.
+        """
+        new_nodegroup = magnum.nodegroup_create(request, cluster_id,
+                                                **request.DATA)
+        return rest_utils.CreatedResponse(
+            '/api/container_infra/clusters/%s/nodegroups/%s'
+            % (cluster_id, new_nodegroup.uuid),
+            new_nodegroup.to_dict())
+
+
+@urls.register
+class NodeGroup(generic.View):
+    """API for a single Magnum node group"""
+    url_regex = (r'container_infra/clusters/(?P<cluster_id>[^/]+)'
+                 r'/nodegroups/(?P<nodegroup_id>[^/]+)$')
+
+    @rest_utils.ajax()
+    def get(self, request, cluster_id, nodegroup_id):
+        """Get a single node group."""
+        try:
+            nodegroup = magnum.nodegroup_show(
+                request, cluster_id, nodegroup_id).to_dict()
+        except AttributeError:
+            return HttpResponseNotFound()
+        return change_to_id(nodegroup)
+
+    @rest_utils.ajax(data_required=True)
+    def patch(self, request, cluster_id, nodegroup_id):
+        """Update a node group's autoscaling bounds."""
+        updated = magnum.nodegroup_update(request, cluster_id, nodegroup_id,
+                                          **request.DATA)
+        return rest_utils.CreatedResponse(
+            '/api/container_infra/clusters/%s/nodegroups/%s'
+            % (cluster_id, nodegroup_id),
+            updated.to_dict())
+
+    @rest_utils.ajax()
+    def delete(self, request, cluster_id, nodegroup_id):
+        """Delete a node group.
+
+        Returns HTTP 204 (no content) on successful deletion.
+        """
+        magnum.nodegroup_delete(request, cluster_id, nodegroup_id)
+
+
+@urls.register
 class Clusters(generic.View):
     """API for Magnum Clusters"""
     url_regex = r'container_infra/clusters/$'

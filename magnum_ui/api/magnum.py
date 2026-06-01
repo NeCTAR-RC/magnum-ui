@@ -26,6 +26,7 @@ from magnumclient.v1 import certificates
 from magnumclient.v1 import client as magnum_client
 from magnumclient.v1 import cluster_templates
 from magnumclient.v1 import clusters
+from magnumclient.v1 import nodegroups
 from magnumclient.v1 import quotas
 
 LOG = logging.getLogger(__name__)
@@ -38,6 +39,9 @@ CLUSTER_UPDATE_ALLOWED_PROPERTIES = set(['/node_count'])
 # Labels that may be set from the cluster create workflow. All other labels are
 # inherited from the cluster template.
 CLUSTER_CREATE_LABELS = ('etcd_volume_size', 'etcd_blockdevice_volume_type')
+NODEGROUP_CREATE_ATTRS = nodegroups.CREATION_ATTRIBUTES
+NODEGROUP_UPDATE_ALLOWED_PROPERTIES = set(
+    ['/min_node_count', '/max_node_count'])
 DEFAULT_API_VERSION = '1.10'
 
 
@@ -308,3 +312,45 @@ def quotas_delete(request, project_id, resource):
 def nodegroup_list(request, cluster_id=None, limit=None, marker=None):
     return magnumclient(request).nodegroups.list(cluster_id, limit=limit,
                                                  marker=marker)
+
+
+def nodegroup_show(request, cluster_id, nodegroup_id):
+    return magnumclient(request).nodegroups.get(cluster_id, nodegroup_id)
+
+
+def nodegroup_create(request, cluster_id, **kwargs):
+    kwargs.setdefault('role', 'worker')
+    args = _cleanup_params(NODEGROUP_CREATE_ATTRS, True, **kwargs)
+    # Magnum stores label values as strings. Forward labels only when supplied
+    # and merge them over the labels inherited from the cluster template.
+    labels = args.get('labels') or {}
+    if labels:
+        args['labels'] = {key: str(value) for key, value in labels.items()}
+        args['merge_labels'] = True
+    else:
+        args.pop('labels', None)
+        args.pop('merge_labels', None)
+    return magnumclient(request).nodegroups.create(cluster_id, **args)
+
+
+def nodegroup_update(request, cluster_id, nodegroup_id, **kwargs):
+    new = _cleanup_params(NODEGROUP_CREATE_ATTRS, True, **kwargs)
+    old = magnumclient(request).nodegroups.get(cluster_id,
+                                               nodegroup_id).to_dict()
+    old = _cleanup_params(NODEGROUP_CREATE_ATTRS, False, **old)
+    patch = _create_patches(old, new)
+
+    # Only the autoscaling bounds may be updated from the UI.
+    patch = [d for d in patch
+             if d['path'] in NODEGROUP_UPDATE_ALLOWED_PROPERTIES]
+    # _create_patches stringifies every value, but Magnum requires the node
+    # counts as integers, so coerce the numeric bounds back to int.
+    for p in patch:
+        if 'value' in p:
+            p['value'] = int(p['value'])
+    return magnumclient(request).nodegroups.update(cluster_id, nodegroup_id,
+                                                   patch)
+
+
+def nodegroup_delete(request, cluster_id, nodegroup_id):
+    return magnumclient(request).nodegroups.delete(cluster_id, nodegroup_id)

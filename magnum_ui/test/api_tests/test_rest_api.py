@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 from unittest import mock
 
 from oslo_serialization import jsonutils
@@ -106,6 +107,68 @@ class MagnumRestTestCase(test.RestAPITestCase):
         client.cluster_delete.assert_called_once_with(
             request,
             'cluster_id')
+
+    # Node Groups
+    @mock.patch.object(magnum, 'magnum')
+    def test_nodegroup_list(self, client):
+        request = self.mock_rest_request()
+        # change_to_id mutates the dicts, so isolate from the shared fixtures.
+        nodegroups = copy.deepcopy(TEST.nodegroups.list())
+        client.nodegroup_list.return_value = mock_resource(nodegroups)
+        response = magnum.NodeGroups().get(request, "1")
+
+        self.assertStatusCode(response, 200)
+        self.assertItemsCollectionEqual(response, nodegroups)
+        client.nodegroup_list.assert_called_once_with(request, "1")
+
+    @mock.patch.object(magnum, 'magnum')
+    def test_nodegroup_create(self, client):
+        test_nodegroup = mock_resource(TEST.nodegroups.list())[0]
+        test_body = jsonutils.dumps(test_nodegroup.to_dict())
+        request = self.mock_rest_request(body=test_body)
+        client.nodegroup_create.return_value = test_nodegroup
+        response = magnum.NodeGroups().post(request, "1")
+        url = '/api/container_infra/clusters/1/nodegroups/%s' % \
+            test_nodegroup.uuid
+
+        self.assertStatusCode(response, 201)
+        self.assertEqual(response['location'], url)
+        client.nodegroup_create.assert_called_once_with(
+            request, "1", **test_nodegroup.to_dict())
+
+    @mock.patch.object(magnum, 'magnum')
+    def test_nodegroup_get(self, client):
+        request = self.mock_rest_request()
+        nodegroup = copy.deepcopy(TEST.nodegroups.first())
+        client.nodegroup_show.return_value = \
+            mock.Mock(**{'to_dict.return_value': nodegroup})
+        response = magnum.NodeGroup().get(request, "1", "1")
+
+        self.assertStatusCode(response, 200)
+        client.nodegroup_show.assert_called_once_with(request, "1", "1")
+
+    @mock.patch.object(magnum, 'magnum')
+    def test_nodegroup_update(self, client):
+        test_nodegroup = mock_resource(TEST.nodegroups.list())[1]
+        test_body = jsonutils.dumps(
+            {"min_node_count": 2, "max_node_count": 6})
+        request = self.mock_rest_request(body=test_body)
+        client.nodegroup_update.return_value = test_nodegroup
+        response = magnum.NodeGroup().patch(request, "1", "2")
+        url = '/api/container_infra/clusters/1/nodegroups/2'
+
+        self.assertStatusCode(response, 201)
+        self.assertEqual(response['location'], url)
+        client.nodegroup_update.assert_called_once_with(
+            request, "1", "2", min_node_count=2, max_node_count=6)
+
+    @mock.patch.object(magnum, 'magnum')
+    def test_nodegroup_delete(self, client):
+        request = self.mock_rest_request()
+        response = magnum.NodeGroup().delete(request, "1", "2")
+
+        self.assertStatusCode(response, 204)
+        client.nodegroup_delete.assert_called_once_with(request, "1", "2")
 
     # Certificates
     @mock.patch.object(magnum, 'magnum')

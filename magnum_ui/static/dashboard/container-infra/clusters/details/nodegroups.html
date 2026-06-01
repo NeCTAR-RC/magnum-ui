@@ -1,0 +1,63 @@
+<div ng-controller="ClusterNodegroupsController as ctrl">
+  <div class="clearfix">
+    <button type="button" class="btn btn-default pull-right"
+            ng-click="ctrl.createNodegroup()" ng-disabled="!ctrl.actionsEnabled">
+      <span class="fa fa-plus"></span>
+      <span translate>Create Node Group</span>
+    </button>
+  </div>
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th translate>Name</th>
+        <th translate>Role</th>
+        <th translate>Flavor</th>
+        <th translate>Node Count</th>
+        <th translate>Status</th>
+        <th translate>Default</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr ng-repeat="ng in ctrl.nodegroups">
+        <td>
+          <a ng-href="ngdetails/OS::Magnum::NodeGroup/{$ ctrl.clusterId $}/{$ ng.id $}">
+            {$ ng.name $}
+          </a>
+        </td>
+        <td>{$ ng.role $}</td>
+        <td>{$ ng.flavor_id $}</td>
+        <td>{$ ng.node_count $}</td>
+        <td>{$ ng.status $}</td>
+        <td>{$ ng.is_default $}</td>
+        <td class="text-right actions_column">
+          <div class="btn-group" uib-dropdown dropdown-append-to-body>
+            <button type="button" class="btn btn-default btn-sm" uib-dropdown-toggle
+                    ng-disabled="!ctrl.actionsEnabled">
+              <span translate>Actions</span> <span class="caret"></span>
+            </button>
+            <ul uib-dropdown-menu role="menu" class="dropdown-menu-right">
+              <li role="menuitem">
+                <a href="" ng-click="ctrl.resizeNodegroup(ng); $event.preventDefault()"
+                   translate>Resize</a>
+              </li>
+              <li role="menuitem">
+                <a href="" ng-click="ctrl.editNodegroup(ng); $event.preventDefault()"
+                   translate>Edit Autoscaling</a>
+              </li>
+              <li role="menuitem" ng-class="{disabled: ng.is_default}">
+                <a href="" class="text-danger"
+                   ng-click="ng.is_default || ctrl.deleteNodegroup(ng); $event.preventDefault()">
+                  <span class="fa fa-trash"></span> <span translate>Delete</span>
+                </a>
+              </li>
+            </ul>
+          </div>
+        </td>
+      </tr>
+      <tr ng-if="ctrl.nodegroups.length === 0">
+        <td colspan="7" translate>No node groups found.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>

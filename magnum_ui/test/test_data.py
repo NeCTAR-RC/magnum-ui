@@ -21,6 +21,7 @@ def data(TEST):
     TEST.clusters = utils.TestDataContainer()
     TEST.certificates = utils.TestDataContainer()
     TEST.certificate_res_list = utils.TestDataContainer()
+    TEST.nodegroups = utils.TestDataContainer()
 
     # Cluster Templates
     cluster_template_dict_1 = {"uuid": 1,
@@ -58,6 +59,36 @@ def data(TEST):
                       "create_timeout": 0}
 
     TEST.clusters.add(cluster_dict_1)
+
+    # Node Groups
+    nodegroup_dict_1 = {"uuid": 1,
+                        "cluster_id": cluster_dict_1["uuid"],
+                        "name": "default-worker",
+                        "node_count": 1,
+                        "flavor_id": "m1.small",
+                        "image_id": "fedora-coreos",
+                        "labels": {},
+                        "role": "worker",
+                        "is_default": True,
+                        "min_node_count": 1,
+                        "max_node_count": None,
+                        "status": "CREATE_COMPLETE"}
+
+    nodegroup_dict_2 = {"uuid": 2,
+                        "cluster_id": cluster_dict_1["uuid"],
+                        "name": "extra-workers",
+                        "node_count": 3,
+                        "flavor_id": "m1.large",
+                        "image_id": "fedora-coreos",
+                        "labels": {},
+                        "role": "worker",
+                        "is_default": False,
+                        "min_node_count": 1,
+                        "max_node_count": 5,
+                        "status": "CREATE_COMPLETE"}
+
+    TEST.nodegroups.add(nodegroup_dict_1)
+    TEST.nodegroups.add(nodegroup_dict_2)
 
     # Certificates
     certificate_1 = {"cluster_uuid": 1,

@@ -63,3 +63,55 @@ class MagnumApiTestCase(test.TestCase):
         sent = create.call_args.kwargs
         self.assertNotIn('labels', sent)
         self.assertNotIn('merge_labels', sent)
+
+    @mock.patch.object(magnum, 'magnumclient')
+    def test_nodegroup_create_defaults_role_and_omits_labels(
+            self, mock_magnumclient):
+        create = mock_magnumclient.return_value.nodegroups.create
+
+        magnum.nodegroup_create(
+            mock.Mock(), 'c1', name='ng1', flavor_id='m1.small', node_count=2)
+
+        create.assert_called_once()
+        self.assertEqual(create.call_args.args[0], 'c1')
+        sent = create.call_args.kwargs
+        self.assertEqual(sent['role'], 'worker')
+        self.assertNotIn('labels', sent)
+        self.assertNotIn('merge_labels', sent)
+
+    @mock.patch.object(magnum, 'magnumclient')
+    def test_nodegroup_create_merges_labels(self, mock_magnumclient):
+        create = mock_magnumclient.return_value.nodegroups.create
+
+        magnum.nodegroup_create(
+            mock.Mock(), 'c1', name='ng1', flavor_id='m1.small',
+            node_count=2, labels={'k': 'v'})
+
+        sent = create.call_args.kwargs
+        self.assertEqual(sent['labels'], {'k': 'v'})
+        self.assertTrue(sent['merge_labels'])
+
+    @mock.patch.object(magnum, 'magnumclient')
+    def test_nodegroup_update_patches_only_minmax(self, mock_magnumclient):
+        nodegroups = mock_magnumclient.return_value.nodegroups
+        nodegroups.get.return_value.to_dict.return_value = {
+            'name': 'ng1', 'flavor_id': 'm1.small', 'node_count': 2,
+            'role': 'worker', 'min_node_count': 1, 'max_node_count': 3,
+        }
+
+        magnum.nodegroup_update(
+            mock.Mock(), 'c1', 'ng-id', min_node_count=2, max_node_count=6)
+
+        nodegroups.update.assert_called_once()
+        cluster_id, nodegroup_id, patch = nodegroups.update.call_args.args
+        self.assertEqual(cluster_id, 'c1')
+        self.assertEqual(nodegroup_id, 'ng-id')
+        self.assertEqual(
+            sorted(op['path'] for op in patch),
+            ['/max_node_count', '/min_node_count'])
+        # Magnum requires the node counts as integers, not strings.
+        values = {op['path']: op['value'] for op in patch}
+        self.assertEqual(values['/min_node_count'], 2)
+        self.assertEqual(values['/max_node_count'], 6)
+        for op in patch:
+            self.assertIsInstance(op['value'], int)

@@ -39,6 +39,11 @@
       resizeCluster: resizeCluster,
       deleteCluster: deleteCluster,
       deleteClusters: deleteClusters,
+      getNodegroups: getNodegroups,
+      getNodegroup: getNodegroup,
+      createNodegroup: createNodegroup,
+      updateNodegroup: updateNodegroup,
+      deleteNodegroup: deleteNodegroup,
       createClusterTemplate: createClusterTemplate,
       updateClusterTemplate: updateClusterTemplate,
       getClusterTemplate: getClusterTemplate,
@@ -136,6 +141,51 @@
         .catch(function onError() {
           toastService.add('error', gettext('Unable to delete the clusters.'));
         });
+    }
+
+    ////////////////
+    // NodeGroups //
+    ////////////////
+
+    function getNodegroups(clusterId) {
+      return apiService.get(
+        '/api/container_infra/clusters/' + clusterId + '/nodegroups/')
+        .catch(function onError() {
+          toastService.add('error', gettext('Unable to retrieve the node groups.'));
+        });
+    }
+
+    function getNodegroup(clusterId, id) {
+      return apiService.get(
+        '/api/container_infra/clusters/' + clusterId + '/nodegroups/' + id)
+        .catch(function onError() {
+          toastService.add('error', gettext('Unable to retrieve the node group.'));
+        });
+    }
+
+    function createNodegroup(clusterId, params) {
+      return apiService.post(
+        '/api/container_infra/clusters/' + clusterId + '/nodegroups/', params)
+        .catch(function onError() {
+          toastService.add('error', gettext('Unable to create node group.'));
+        });
+    }
+
+    function updateNodegroup(clusterId, id, params) {
+      return apiService.patch(
+        '/api/container_infra/clusters/' + clusterId + '/nodegroups/' + id, params)
+        .catch(function onError() {
+          toastService.add('error', gettext('Unable to update node group.'));
+        });
+    }
+
+    function deleteNodegroup(clusterId, id, suppressError) {
+      var promise = apiService.delete(
+        '/api/container_infra/clusters/' + clusterId + '/nodegroups/' + id);
+      return suppressError ? promise : promise.catch(function onError() {
+        var msg = gettext('Unable to delete the node group with id: %(id)s');
+        toastService.add('error', interpolate(msg, { id: id }, true));
+      });
     }
 
     //////////////////////
