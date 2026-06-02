@@ -64,7 +64,6 @@
 
       // List of actions disabled/enabled based on the allowed statuses
       var CONDITIONAL_ACTIONS_LIST = [
-        'resizeClusterAction',
         'rollingUpgradeClusterAction'
       ];
 
