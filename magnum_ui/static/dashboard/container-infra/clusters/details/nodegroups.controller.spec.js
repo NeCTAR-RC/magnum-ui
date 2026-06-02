@@ -38,7 +38,7 @@
         'horizon.dashboard.container-infra.clusters.nodegroups.delete.service');
     }));
 
-    function createController(status) {
+    function createController(status, clusterLabels) {
       var listDeferred = $q.defer();
       listDeferred.resolve({data: {items: [
         {id: '1', name: 'default-worker', is_default: true},
@@ -47,7 +47,10 @@
       spyOn(magnum, 'getNodegroups').and.returnValue(listDeferred.promise);
 
       var loadDeferred = $q.defer();
-      loadDeferred.resolve({data: {status: status || 'CREATE_COMPLETE'}});
+      loadDeferred.resolve({data: {
+        status: status || 'CREATE_COMPLETE',
+        labels: clusterLabels
+      }});
 
       $scope.context = {identifier: 'c1', loadPromise: loadDeferred.promise};
 
@@ -67,6 +70,33 @@
       var ctrl = createController('UPDATE_IN_PROGRESS');
       $scope.$apply();
       expect(ctrl.actionsEnabled).toBe(false);
+    });
+
+    it('allows editing autoscaling when enabled cluster-wide', function() {
+      // Magnum stores the label as the capitalised string 'True'.
+      var ctrl = createController('CREATE_COMPLETE', {auto_scaling_enabled: 'True'});
+      $scope.$apply();
+      // Any nodegroup is editable because the label is set on the cluster.
+      expect(ctrl.autoscalingEnabled({labels: {}})).toBe(true);
+      expect(ctrl.autoscalingEnabled({})).toBe(true);
+    });
+
+    it('allows editing autoscaling when enabled on the nodegroup itself', function() {
+      var ctrl = createController('CREATE_COMPLETE', {});
+      $scope.$apply();
+      // The label is matched case-insensitively: Magnum's str(True) is 'True'.
+      expect(ctrl.autoscalingEnabled({labels: {auto_scaling_enabled: 'True'}})).toBe(true);
+      expect(ctrl.autoscalingEnabled({labels: {auto_scaling_enabled: 'true'}})).toBe(true);
+      // A boolean true label is also accepted.
+      expect(ctrl.autoscalingEnabled({labels: {auto_scaling_enabled: true}})).toBe(true);
+    });
+
+    it('disallows editing autoscaling when the label is absent or not true', function() {
+      var ctrl = createController('CREATE_COMPLETE');
+      $scope.$apply();
+      expect(ctrl.autoscalingEnabled({labels: {}})).toBe(false);
+      expect(ctrl.autoscalingEnabled({labels: {auto_scaling_enabled: 'false'}})).toBe(false);
+      expect(ctrl.autoscalingEnabled({})).toBe(false);
     });
 
     it('runs each action and reloads the list on success', function() {

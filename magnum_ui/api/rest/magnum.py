@@ -311,7 +311,7 @@ class NodeGroups(generic.View):
         The returned result is an object with property 'items' and each
         item under this is a node group.
         """
-        result = magnum.nodegroup_list(request, cluster_id)
+        result = magnum.nodegroup_list_detailed(request, cluster_id)
         return {'items': [change_to_id(n.to_dict()) for n in result]}
 
     @rest_utils.ajax(data_required=True)

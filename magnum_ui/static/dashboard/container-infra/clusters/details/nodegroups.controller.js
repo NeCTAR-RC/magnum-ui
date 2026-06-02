@@ -55,17 +55,35 @@
     ctrl.clusterId = $scope.context.identifier;
     ctrl.nodegroups = [];
     ctrl.actionsEnabled = false;
+    ctrl.clusterLabels = {};
     ctrl.reload = reload;
     ctrl.createNodegroup = function() { run(createService); };
     ctrl.resizeNodegroup = function(nodegroup) { run(resizeService, nodegroup); };
     ctrl.editNodegroup = function(nodegroup) { run(editService, nodegroup); };
     ctrl.deleteNodegroup = function(nodegroup) { run(deleteService, nodegroup); };
+    ctrl.autoscalingEnabled = autoscalingEnabled;
 
     $scope.context.loadPromise.then(function(response) {
       ctrl.actionsEnabled = ALLOWED_STATUSES.indexOf(response.data.status) > -1;
+      ctrl.clusterLabels = response.data.labels || {};
     });
 
     reload();
+
+    // Autoscaling can only be edited on a nodegroup when it was enabled via the
+    // auto_scaling_enabled label, either cluster-wide or on the nodegroup itself.
+    function autoscalingEnabled(nodegroup) {
+      return labelTrue(ctrl.clusterLabels) ||
+        labelTrue(nodegroup && nodegroup.labels);
+    }
+
+    // Magnum stores label values as strings, and Python's str(True) yields the
+    // capitalised 'True', so compare case-insensitively rather than matching a
+    // single literal.
+    function labelTrue(labels) {
+      return !!labels &&
+        String(labels.auto_scaling_enabled).toLowerCase() === 'true';
+    }
 
     function reload() {
       return magnum.getNodegroups(ctrl.clusterId).then(function(response) {

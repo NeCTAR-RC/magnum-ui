@@ -114,12 +114,12 @@ class MagnumRestTestCase(test.RestAPITestCase):
         request = self.mock_rest_request()
         # change_to_id mutates the dicts, so isolate from the shared fixtures.
         nodegroups = copy.deepcopy(TEST.nodegroups.list())
-        client.nodegroup_list.return_value = mock_resource(nodegroups)
+        client.nodegroup_list_detailed.return_value = mock_resource(nodegroups)
         response = magnum.NodeGroups().get(request, "1")
 
         self.assertStatusCode(response, 200)
         self.assertItemsCollectionEqual(response, nodegroups)
-        client.nodegroup_list.assert_called_once_with(request, "1")
+        client.nodegroup_list_detailed.assert_called_once_with(request, "1")
 
     @mock.patch.object(magnum, 'magnum')
     def test_nodegroup_create(self, client):

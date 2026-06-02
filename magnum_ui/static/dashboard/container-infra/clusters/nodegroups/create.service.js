@@ -215,11 +215,16 @@
       if (model.auto_scaling_enabled) {
         params.min_node_count = model.min_node_count;
         params.max_node_count = model.max_node_count;
+        // Tag the nodegroup itself so autoscaling can be enabled per-nodegroup,
+        // rather than relying solely on a cluster-wide auto_scaling_enabled label.
+        params.labels = params.labels || {};
+        params.labels.auto_scaling_enabled = true;
       }
       // Boot from volume is expressed via Magnum labels; the volume type is
       // optional and, when left blank, the standard volume type is used.
       if (model.boot_from_volume) {
-        params.labels = {boot_volume_size: model.boot_volume_size};
+        params.labels = params.labels || {};
+        params.labels.boot_volume_size = model.boot_volume_size;
         if (model.boot_volume_type) {
           params.labels.boot_volume_type = model.boot_volume_type;
         }

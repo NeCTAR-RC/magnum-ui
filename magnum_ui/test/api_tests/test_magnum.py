@@ -92,6 +92,21 @@ class MagnumApiTestCase(test.TestCase):
         self.assertTrue(sent['merge_labels'])
 
     @mock.patch.object(magnum, 'magnumclient')
+    def test_nodegroup_list_detailed_fetches_each(self, mock_magnumclient):
+        nodegroups = mock_magnumclient.return_value.nodegroups
+        nodegroups.list.return_value = [
+            mock.Mock(uuid='ng1'), mock.Mock(uuid='ng2')]
+
+        magnum.nodegroup_list_detailed(mock.Mock(), 'c1')
+
+        # Magnum has no detailed-list endpoint, so each nodegroup is fetched
+        # individually to obtain its labels.
+        nodegroups.list.assert_called_once_with('c1')
+        self.assertEqual(
+            [call.args for call in nodegroups.get.call_args_list],
+            [('c1', 'ng1'), ('c1', 'ng2')])
+
+    @mock.patch.object(magnum, 'magnumclient')
     def test_nodegroup_update_patches_only_minmax(self, mock_magnumclient):
         nodegroups = mock_magnumclient.return_value.nodegroups
         nodegroups.get.return_value.to_dict.return_value = {

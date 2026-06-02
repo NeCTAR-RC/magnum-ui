@@ -314,6 +314,15 @@ def nodegroup_list(request, cluster_id=None, limit=None, marker=None):
                                                  marker=marker)
 
 
+def nodegroup_list_detailed(request, cluster_id=None):
+    # The nodegroup list returns a summary that omits labels, and Magnum has
+    # no detailed-list endpoint, so fetch each nodegroup individually. The UI
+    # needs labels to tell whether autoscaling is enabled on a nodegroup.
+    client = magnumclient(request)
+    nodegroups = client.nodegroups.list(cluster_id)
+    return [client.nodegroups.get(cluster_id, ng.uuid) for ng in nodegroups]
+
+
 def nodegroup_show(request, cluster_id, nodegroup_id):
     return magnumclient(request).nodegroups.get(cluster_id, nodegroup_id)
 

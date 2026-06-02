@@ -77,7 +77,7 @@
         });
       });
 
-      it('includes autoscaling bounds when enabled', function() {
+      it('includes autoscaling bounds and label when enabled', function() {
         service.perform('c1');
         $scope.$apply();
 
@@ -96,7 +96,34 @@
           node_count: 3,
           role: 'worker',
           min_node_count: 1,
-          max_node_count: 5
+          max_node_count: 5,
+          labels: {auto_scaling_enabled: true}
+        });
+      });
+
+      it('merges autoscaling and boot-from-volume labels', function() {
+        service.perform('c1');
+        $scope.$apply();
+
+        modalConfig.model.name = 'ng1';
+        modalConfig.model.flavor_id = 'm1.large';
+        modalConfig.model.node_count = 3;
+        modalConfig.model.auto_scaling_enabled = true;
+        modalConfig.model.min_node_count = 1;
+        modalConfig.model.max_node_count = 5;
+        modalConfig.model.boot_from_volume = true;
+        modalConfig.model.boot_volume_size = 50;
+        openDeferred.resolve();
+        $scope.$apply();
+
+        expect(magnum.createNodegroup).toHaveBeenCalledWith('c1', {
+          name: 'ng1',
+          flavor_id: 'm1.large',
+          node_count: 3,
+          role: 'worker',
+          min_node_count: 1,
+          max_node_count: 5,
+          labels: {auto_scaling_enabled: true, boot_volume_size: 50}
         });
       });
 

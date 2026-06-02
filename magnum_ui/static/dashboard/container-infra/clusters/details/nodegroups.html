@@ -41,8 +41,9 @@
                 <a href="" ng-click="ctrl.resizeNodegroup(ng); $event.preventDefault()"
                    translate>Resize</a>
               </li>
-              <li role="menuitem">
-                <a href="" ng-click="ctrl.editNodegroup(ng); $event.preventDefault()"
+              <li role="menuitem" ng-class="{disabled: !ctrl.autoscalingEnabled(ng)}">
+                <a href=""
+                   ng-click="ctrl.autoscalingEnabled(ng) && ctrl.editNodegroup(ng); $event.preventDefault()"
                    translate>Edit Autoscaling</a>
               </li>
               <li role="menuitem" ng-class="{disabled: ng.is_default}">
