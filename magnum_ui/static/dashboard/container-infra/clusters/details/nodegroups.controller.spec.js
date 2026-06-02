@@ -66,6 +66,14 @@
       expect(ctrl.actionsEnabled).toBe(true);
     });
 
+    it('reports loading until the nodegroups resolve', function() {
+      var ctrl = createController();
+      // The list is still in flight right after construction.
+      expect(ctrl.loading).toBe(true);
+      $scope.$apply();
+      expect(ctrl.loading).toBe(false);
+    });
+
     it('disables actions when the cluster status is not stable', function() {
       var ctrl = createController('UPDATE_IN_PROGRESS');
       $scope.$apply();

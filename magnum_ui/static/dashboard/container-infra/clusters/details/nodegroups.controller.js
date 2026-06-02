@@ -56,6 +56,10 @@
     ctrl.nodegroups = [];
     ctrl.actionsEnabled = false;
     ctrl.clusterLabels = {};
+    // Fetching the list detail is a per-nodegroup round trip, so it can take a
+    // while; track loading so the table can show a spinner rather than an
+    // (incorrect) "No node groups found." message.
+    ctrl.loading = true;
     ctrl.reload = reload;
     ctrl.createNodegroup = function() { run(createService); };
     ctrl.resizeNodegroup = function(nodegroup) { run(resizeService, nodegroup); };
@@ -86,8 +90,11 @@
     }
 
     function reload() {
+      ctrl.loading = true;
       return magnum.getNodegroups(ctrl.clusterId).then(function(response) {
         ctrl.nodegroups = response.data.items;
+      }).finally(function() {
+        ctrl.loading = false;
       });
     }
 

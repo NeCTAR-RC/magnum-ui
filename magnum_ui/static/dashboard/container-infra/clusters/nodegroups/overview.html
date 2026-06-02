@@ -1,4 +1,8 @@
 <div ng-controller="NodeGroupOverviewController as ctrl">
+  <div ng-if="ctrl.loading" class="text-center">
+    <span class="fa fa-spinner fa-spin"></span> <span translate>Loading…</span>
+  </div>
+  <div ng-if="!ctrl.loading">
   <div class="row">
     <div class="col-md-6 detail">
       <h3 translate>Node Group</h3>
@@ -94,5 +98,6 @@
         <dd>{$ ctrl.nodegroup.updated_at|noValue $}</dd>
       </dl>
     </div>
+  </div>
   </div>
 </div>

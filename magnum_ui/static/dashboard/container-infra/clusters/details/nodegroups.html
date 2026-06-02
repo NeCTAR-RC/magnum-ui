@@ -19,6 +19,11 @@
       </tr>
     </thead>
     <tbody>
+      <tr ng-if="ctrl.loading">
+        <td colspan="7" class="text-center">
+          <span class="fa fa-spinner fa-spin"></span> <span translate>Loading…</span>
+        </td>
+      </tr>
       <tr ng-repeat="ng in ctrl.nodegroups">
         <td>
           <a ng-href="ngdetails/OS::Magnum::NodeGroup/{$ ctrl.clusterId $}/{$ ng.id $}">
@@ -56,7 +61,7 @@
           </div>
         </td>
       </tr>
-      <tr ng-if="ctrl.nodegroups.length === 0">
+      <tr ng-if="!ctrl.loading && ctrl.nodegroups.length === 0">
         <td colspan="7" translate>No node groups found.</td>
       </tr>
     </tbody>

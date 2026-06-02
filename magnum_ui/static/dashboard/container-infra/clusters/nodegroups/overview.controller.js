@@ -31,9 +31,14 @@
   function NodeGroupOverviewController($scope) {
     var ctrl = this;
     ctrl.nodegroup = {};
+    // Show a spinner until the node group resolves, rather than a page full of
+    // empty fields and misleading "No labels."/"No node addresses." messages.
+    ctrl.loading = true;
     ctrl.objLen = objLen;
 
-    $scope.context.loadPromise.then(onGetNodegroup);
+    $scope.context.loadPromise.then(onGetNodegroup).finally(function() {
+      ctrl.loading = false;
+    });
 
     function onGetNodegroup(response) {
       ctrl.nodegroup = response.data;

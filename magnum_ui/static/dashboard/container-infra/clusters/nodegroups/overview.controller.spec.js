@@ -35,6 +35,12 @@
       expect(ctrl.nodegroup.name).toBe('ng1');
     });
 
+    it('reports loading until the nodegroup resolves', function() {
+      expect(ctrl.loading).toBe(true);
+      $rootScope.$apply();
+      expect(ctrl.loading).toBe(false);
+    });
+
     it('objLen counts keys of objects and arrays', function() {
       expect(ctrl.objLen()).toBe(0);
       expect(ctrl.objLen(null)).toBe(0);
