@@ -20,26 +20,42 @@
    * @name horizon.dashboard.container-infra.clusters.DrawerController
    * @description
    * This is the controller for the cluster drawer (summary) view.
-   * Its primary purpose is to provide the metadata definitions to
-   * the template via the ctrl.metadataDefs member.
+   * The cluster's availability zone and network driver are not stored on the
+   * cluster itself, so they are derived from its cluster template: the
+   * availability zone is encoded in the template name, while the network driver
+   * is a field on the template.
    */
   angular
     .module('horizon.dashboard.container-infra.clusters')
     .controller('horizon.dashboard.container-infra.clusters.DrawerController', controller);
 
   controller.$inject = [
+    '$scope',
+    'horizon.app.core.openstack-service-api.magnum',
+    'horizon.dashboard.container-infra.utils.service'
   ];
 
-  function controller() {
+  function controller($scope, magnum, utils) {
     var ctrl = this;
-    ctrl.objLen = objLen;
+    ctrl.availabilityZone = '';
+    ctrl.networkDriver = '';
 
-    function objLen(obj) {
-      var length = 0;
-      if (obj && typeof obj === 'object') {
-        length = Object.keys(obj).length;
+    if ($scope.item && $scope.item.cluster_template_id) {
+      magnum.getClusterTemplate($scope.item.cluster_template_id).then(onGetClusterTemplate);
+    }
+
+    function onGetClusterTemplate(response) {
+      if (!response) { return; }
+      var template = response.data;
+      ctrl.networkDriver = template.network_driver;
+      // The availability zone is only available by parsing the template name.
+      var parsed = utils.parseTemplateName(template.name);
+      if (parsed) {
+        ctrl.availabilityZone = parsed.availabilityZone;
+        if (!ctrl.networkDriver) {
+          ctrl.networkDriver = parsed.networkDriver;
+        }
       }
-      return length;
     }
   }
 })();
