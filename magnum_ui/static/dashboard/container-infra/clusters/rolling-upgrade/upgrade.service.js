@@ -21,9 +21,9 @@
    * @ngdoc overview
    * @name horizon.dashboard.container-infra.clusters.rolling-upgrade.service
    * @description Service for the container-infra cluster rolling upgrade modal.
-   * Allows user to choose a Cluster template with higher version number the
-   * cluster should upgrade to. Optionally, the number of nodes in a single
-   * upgrade batch can be chosen.
+   * The cluster templates a cluster can be upgraded to are listed by id in the
+   * `upgrade_targets` label of its current cluster template; the user picks the
+   * target by Kubernetes version.
    */
   angular
     .module('horizon.dashboard.container-infra.clusters')
@@ -48,7 +48,7 @@
     resourceType, utils
   ) {
 
-    var modalConfig, formModel, isLatestTemplate, clusterTemplatesTitleMap;
+    var modalConfig, formModel, isLatestTemplate, versionTitleMap;
 
     var service = {
       perform: perform,
@@ -67,25 +67,19 @@
       var deferred = $q.defer();
       spinnerModal.showModalSpinner(gettext('Loading'));
 
-      var activeTemplateVersion, activeTemplateId;
+      var currentTemplateId;
 
       magnum.getCluster(selected.id).then(function(response) {
+        var cluster = response.data;
+
         formModel = getFormModelDefaults();
         formModel.id = selected.id;
-        clusterTemplatesTitleMap = [
-          // Default <select> placeholder
-          {
-            value:'',
-            name: gettext("Choose a Cluster Template to upgrade to")
-          }
-        ];
 
-        processClusterResponse(response.data);
+        currentTemplateId = cluster.cluster_template_id;
 
-        // Retrieve only cluster templates related to the current one.
-        return magnum.getClusterTemplates(activeTemplateId);
+        return magnum.getClusterTemplates();
       }).then(function(response) {
-        processClusterTemplatesResponse(response.data.items);
+        buildVersionTitleMap(response.data.items);
 
         modalConfig = createModalConfig();
 
@@ -95,36 +89,56 @@
         $scope.model = formModel;
       }).catch(onError);
 
-      function processClusterResponse(cluster) {
-        formModel.master_nodes = cluster.master_count;
-        formModel.worker_nodes = cluster.node_count;
+      function buildVersionTitleMap(templates) {
+        versionTitleMap = [
+          // Default <select> placeholder
+          {
+            value: '',
+            name: gettext('Choose a Kubernetes version to upgrade to')
+          }
+        ];
 
-        activeTemplateVersion = cluster.labels.kube_tag;
-        activeTemplateId = cluster.cluster_template_id;
-      }
+        if (!templates) {
+          isLatestTemplate = true;
+          return;
+        }
 
-      function processClusterTemplatesResponse(clusterTemplates) {
-        if (!clusterTemplates) { return; }
+        // Index the templates by id so upgrade target ids can be resolved to
+        // their Kubernetes versions.
+        var templatesById = {};
+        templates.forEach(function(template) {
+          templatesById[template.id] = template;
+        });
 
-        var startingTemplatesTitleMapLength = clusterTemplatesTitleMap.length;
+        // The cluster's current cluster template lists the templates it can be
+        // upgraded to in its `upgrade_targets` label. An empty/missing label
+        // means there are no targets.
+        var current = templatesById[currentTemplateId];
+        var targetIds = parseUpgradeTargets(
+          current && current.labels ? current.labels.upgrade_targets : null);
 
-        // Only load templates that are greater than the current template (kube tag comparison)
-        clusterTemplates.forEach(function(template) {
-          if (isVersionGreater(activeTemplateVersion, template.labels.kube_tag)) {
-            clusterTemplatesTitleMap.push({
-              value: template.id,
-              name: template.name
+        targetIds.forEach(function(targetId) {
+          var target = templatesById[targetId];
+          // The Kubernetes version is encoded in the template name, not a label.
+          var parsed = target ? utils.parseTemplateName(target.name) : null;
+          if (parsed) {
+            versionTitleMap.push({
+              // Submit the template id, but show the user the Kubernetes version.
+              value: target.id,
+              name: parsed.k8sVersion
             });
           }
         });
 
-        // Order templates by name in descending order
-        clusterTemplatesTitleMap.sort(function(firstTemplate, secondTemplate) {
-          return firstTemplate.name < secondTemplate.name ? 1 : -1;
+        // Order versions in descending order, keeping the placeholder first.
+        versionTitleMap.sort(function(first, second) {
+          if (first.value === '') { return -1; }
+          if (second.value === '') { return 1; }
+          return utils.versionCompare(second.name, first.name);
         });
 
-        // If nothing has been added to the map => already on latest template
-        isLatestTemplate = startingTemplatesTitleMapLength === clusterTemplatesTitleMap.length;
+        // No upgrade targets means the cluster is already on the latest template.
+        isLatestTemplate = versionTitleMap.length === 1;
       }
 
       function onError(err) {
@@ -143,13 +157,8 @@
           type: 'object',
           properties: {
             'cluster_template_id': {
-              title: gettext('New Cluster Template'),
+              title: gettext('Kubernetes Version'),
               type: 'string'
-            },
-            'max_batch_size': {
-              title: gettext('Maximum Batch Size'),
-              type: 'number',
-              minimum: 1
             }
           }
         },
@@ -157,26 +166,11 @@
           {
             key: 'cluster_template_id',
             type: 'select',
-            titleMap: clusterTemplatesTitleMap,
+            titleMap: versionTitleMap,
             required: true,
             readonly: isLatestTemplate,
             description: isLatestTemplate
-              ? gettext('<em>This cluster is already on the latest compatible template</em>') : null
-          },
-          {
-            key: 'max_batch_size',
-            placeholder: gettext('The cluster node count.'),
-            // Disable if there's nothing to upgrade or if the the default value incrementation
-            // would fail the validation.
-            readonly: isLatestTemplate ||
-              !isBatchSizeValid(getFormModelDefaults().max_batch_size + 1),
-            validationMessage: {
-              sizeExceeded: gettext('The maximum number of nodes in the batch has been exceeded.'),
-              101: gettext('A batch cannot have less than one node.')
-            },
-            $validators: {
-              sizeExceeded: isBatchSizeValid
-            }
+              ? gettext('<em>This cluster is already on the latest Kubernetes version</em>') : null
           }
         ],
         model: formModel
@@ -185,8 +179,7 @@
 
     function getFormModelDefaults() {
       return {
-        cluster_template_id: '',
-        max_batch_size: 1
+        cluster_template_id: ''
       };
     }
 
@@ -194,34 +187,30 @@
       return $qExtensions.booleanAsPromise(true);
     }
 
-    function isBatchSizeValid(batchSize) {
-      return batchSize &&
-        (batchSize === 1 ||
-        batchSize <= formModel.master_nodes / 3 && batchSize <= formModel.worker_nodes / 5);
-    }
-
     function onModalSubmit() {
       return magnum.upgradeCluster(formModel.id, {
         cluster_template: formModel.cluster_template_id,
-        max_batch_size: formModel.max_batch_size,
+        // The driver ignores the batch size, so always upgrade one node at a time.
+        max_batch_size: 1,
         nodegroup: 'default-worker'
       }).then(onRequestSuccess);
     }
 
     function onRequestSuccess() {
-      toast.add('success', gettext('Cluster is being upgraded to the new Cluster template'));
+      toast.add('success', gettext('Cluster is being upgraded to the new Kubernetes version'));
       return actionResult.getActionResult()
         .updated(resourceType, formModel.id)
         .result;
     }
 
-    function isVersionGreater(v1, v2) {
-      if (!v1 || !v2) { return null; }
-
-      // Strip the 'v' if prefixed in the version
-      if (v1[0] === 'v') { v1 = v1.substr(1); }
-      if (v2[0] === 'v') { v2 = v2.substr(1); }
-      return utils.versionCompare(v1, v2) < 0;
+    // The `upgrade_targets` label holds a comma-separated list of cluster
+    // template ids. Returns an array of ids, or an empty array when unset.
+    function parseUpgradeTargets(value) {
+      if (!value) { return []; }
+      if (angular.isArray(value)) { return value; }
+      return value.split(',').map(function(id) {
+        return id.trim();
+      }).filter(Boolean);
     }
 
   }
