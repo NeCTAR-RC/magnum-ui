@@ -39,19 +39,35 @@
     };
 
     function perform(clusterId, nodegroup) {
+      // The control plane nodegroup is restricted to the same sizes as the
+      // cluster create form: 1, 3, 5 or 7 nodes.
+      var isControlPlane = nodegroup.role === 'master';
       var model = { node_count: nodegroup.node_count };
+      var nodeCountSchema = { type: 'number', minimum: 0 };
+      var nodeCountField = { key: 'node_count', title: gettext('Node Count'), required: true };
+
+      if (isControlPlane) {
+        nodeCountSchema = { type: 'number', minimum: 1, maximum: 7 };
+        nodeCountField.validationMessage = {
+          'mustBeUnevenNumber': gettext('Supported control plane sizes are 1, 3, 5 or 7.')
+        };
+        nodeCountField.$validators = {
+          mustBeUnevenNumber: function(value) {
+            return value % 2 !== 0;
+          }
+        };
+      }
+
       var config = {
         title: interpolate(
           gettext('Resize Node Group: %(name)s'), {name: nodegroup.name}, true),
         schema: {
           type: 'object',
           properties: {
-            'node_count': { type: 'number', minimum: 0 }
+            'node_count': nodeCountSchema
           }
         },
-        form: [
-          { key: 'node_count', title: gettext('Node Count'), required: true }
-        ],
+        form: [nodeCountField],
         model: model
       };
 

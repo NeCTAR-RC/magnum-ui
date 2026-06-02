@@ -62,5 +62,28 @@
           nodegroup: 'extra'
         });
       });
+
+      it('does not restrict worker nodegroup sizes', function() {
+        service.perform('c1', {id: '2', name: 'extra', node_count: 3, role: 'worker'});
+
+        expect(modalConfig.schema.properties.node_count).toEqual({
+          type: 'number', minimum: 0
+        });
+        expect(modalConfig.form[0].$validators).toBeUndefined();
+      });
+
+      it('restricts the control plane nodegroup to sizes 1, 3, 5 or 7', function() {
+        service.perform('c1', {id: '1', name: 'master', node_count: 3, role: 'master'});
+
+        expect(modalConfig.schema.properties.node_count).toEqual({
+          type: 'number', minimum: 1, maximum: 7
+        });
+
+        var field = modalConfig.form[0];
+        expect(field.validationMessage.mustBeUnevenNumber).toBeDefined();
+        expect(field.$validators.mustBeUnevenNumber(1)).toBe(true);
+        expect(field.$validators.mustBeUnevenNumber(5)).toBe(true);
+        expect(field.$validators.mustBeUnevenNumber(4)).toBe(false);
+      });
     });
 })();
