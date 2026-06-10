@@ -35,6 +35,11 @@
       expect(actionHasId(actions, 'batchDeleteClusterAction')).toBe(true);
     });
 
+    it('registers Manage Node Groups as an item action', function() {
+      var actions = registry.getResourceType('OS::Magnum::Cluster').itemActions;
+      expect(actionHasId(actions, 'manageNodegroupsAction')).toBe(true);
+    });
+
     it('registers Show Certificate as an item action', function() {
       var actions = registry.getResourceType('OS::Magnum::Cluster').itemActions;
       expect(actionHasId(actions, 'showCertificateAction')).toBe(true);

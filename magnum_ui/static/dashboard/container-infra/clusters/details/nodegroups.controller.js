@@ -29,6 +29,9 @@
 
   ClusterNodegroupsController.$inject = [
     '$scope',
+    '$element',
+    '$location',
+    '$timeout',
     'horizon.app.core.openstack-service-api.magnum',
     'horizon.dashboard.container-infra.clusters.nodegroups.create.service',
     'horizon.dashboard.container-infra.clusters.nodegroups.resize.service',
@@ -37,9 +40,14 @@
   ];
 
   function ClusterNodegroupsController(
-    $scope, magnum, createService, resizeService, editService, deleteService
+    $scope, $element, $location, $timeout,
+    magnum, createService, resizeService, editService, deleteService
   ) {
     var ctrl = this;
+
+    // Id of this detail view, as registered in details.module.js; used to work
+    // out which tab to activate when deep-linked from the cluster list.
+    var NODEGROUPS_VIEW_ID = 'clusterDetailsNodegroups';
 
     // Cluster statuses in which nodegroup actions are allowed (mirrors the
     // statuses used to gate resize/upgrade in clusters.utils.js).
@@ -73,6 +81,30 @@
     });
 
     reload();
+
+    // The "Manage Node Groups" cluster list action links here with a
+    // ?tab=nodegroups marker. The detail page's tabset has no built-in
+    // deep-linking, so select this tab ourselves once it has rendered.
+    if ($location.search().tab === 'nodegroups') {
+      $timeout(selectNodegroupsTab);
+    }
+
+    // Activate the Node Groups tab on the detail page's tabset. The tab content
+    // is transcluded into the (angular-ui-bootstrap) tabset, so we reach the
+    // tabset controller via this element and switch to the tab matching this
+    // detail view. Setting `active` to the view's index triggers the tabset's
+    // own watch, which performs the selection.
+    function selectNodegroupsTab() {
+      var tabset = $element.controller('uibTabset');
+      var views = $scope.views;
+      if (!tabset || !views) { return; }
+      for (var i = 0; i < views.length; i++) {
+        if (views[i].id === NODEGROUPS_VIEW_ID) {
+          tabset.active = i;
+          return;
+        }
+      }
+    }
 
     // Autoscaling can only be edited on a nodegroup when it was enabled via the
     // auto_scaling_enabled label, either cluster-wide or on the nodegroup itself.

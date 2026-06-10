@@ -16,16 +16,20 @@
   'use strict';
 
   describe('ClusterNodegroupsController', function() {
-    var $controller, $scope, $q, magnum,
+    var $controller, $scope, $q, $location, $timeout, $element, magnum,
       createService, resizeService, editService, deleteService;
 
     beforeEach(module('horizon.app.core'));
     beforeEach(module('horizon.framework'));
     beforeEach(module('horizon.dashboard.container-infra.clusters'));
 
-    beforeEach(inject(function($injector, _$rootScope_, _$q_, _$controller_) {
+    beforeEach(inject(function($injector, _$rootScope_, _$q_, _$controller_,
+      _$location_, _$timeout_) {
       $q = _$q_;
       $controller = _$controller_;
+      $location = _$location_;
+      $timeout = _$timeout_;
+      $element = angular.element('<div></div>');
       $scope = _$rootScope_.$new();
       magnum = $injector.get('horizon.app.core.openstack-service-api.magnum');
       createService = $injector.get(
@@ -54,7 +58,8 @@
 
       $scope.context = {identifier: 'c1', loadPromise: loadDeferred.promise};
 
-      return $controller('ClusterNodegroupsController', {$scope: $scope});
+      return $controller('ClusterNodegroupsController',
+        {$scope: $scope, $element: $element});
     }
 
     it('loads the nodegroups and enables actions for a stable status', function() {
@@ -135,6 +140,45 @@
       expect(deleteService.perform).toHaveBeenCalledWith('c1', ng, $scope);
       // Each successful action triggers a reload.
       expect(magnum.getNodegroups.calls.count()).toBe(4);
+    });
+
+    it('activates the node groups tab when deep-linked with ?tab=nodegroups', function() {
+      var tabset = {active: 0};
+      spyOn($location, 'search').and.returnValue({tab: 'nodegroups'});
+      spyOn($element, 'controller').and.returnValue(tabset);
+      $scope.views = [
+        {id: 'clusterDetailsOverview'},
+        {id: 'clusterDetailsNodegroups'}
+      ];
+
+      createController();
+      $scope.$apply();
+      $timeout.flush();
+
+      expect($element.controller).toHaveBeenCalledWith('uibTabset');
+      // Node Groups is the second view, so its tab index is 1.
+      expect(tabset.active).toBe(1);
+    });
+
+    it('leaves the active tab alone without the ?tab=nodegroups marker', function() {
+      spyOn($element, 'controller');
+
+      createController();
+      $scope.$apply();
+
+      // No deferred tab switch was scheduled.
+      expect(function() { $timeout.verifyNoPendingTasks(); }).not.toThrow();
+      expect($element.controller).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when the tabset or views are unavailable', function() {
+      spyOn($location, 'search').and.returnValue({tab: 'nodegroups'});
+      spyOn($element, 'controller').and.returnValue(null);
+
+      createController();
+      $scope.$apply();
+      // No tabset and no $scope.views: the helper bails out without error.
+      expect(function() { $timeout.flush(); }).not.toThrow();
     });
   });
 })();

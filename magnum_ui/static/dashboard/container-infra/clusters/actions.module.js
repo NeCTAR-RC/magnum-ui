@@ -34,6 +34,7 @@
     'horizon.framework.util.i18n.gettext',
     'horizon.dashboard.container-infra.clusters.create.service',
     'horizon.dashboard.container-infra.clusters.delete.service',
+    'horizon.dashboard.container-infra.clusters.nodegroups.manage.service',
     'horizon.dashboard.container-infra.clusters.rolling-upgrade.service',
     'horizon.dashboard.container-infra.clusters.show-certificate.service',
     'horizon.dashboard.container-infra.clusters.sign-certificate.service',
@@ -47,6 +48,7 @@
     gettext,
     createClusterService,
     deleteClusterService,
+    manageNodegroupsService,
     rollingUpgradeClusterService,
     showCertificateService,
     signCertificateService,
@@ -76,6 +78,13 @@
       });
 
     clusterResourceType.itemActions
+      .append({
+        id: 'manageNodegroupsAction',
+        service: manageNodegroupsService,
+        template: {
+          text: gettext('Manage Node Groups')
+        }
+      })
       .append({
         id: 'showCertificateAction',
         service: showCertificateService,
