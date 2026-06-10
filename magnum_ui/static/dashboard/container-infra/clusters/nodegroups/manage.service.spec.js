@@ -16,7 +16,7 @@
   'use strict';
 
   describe('horizon.dashboard.container-infra.clusters.nodegroups.manage.service', function() {
-    var service, $location, detailRoute;
+    var service, $location, detailRoute, spinner;
 
     beforeEach(module('horizon.app.core'));
     beforeEach(module('horizon.framework'));
@@ -28,6 +28,7 @@
         'horizon.dashboard.container-infra.clusters.nodegroups.manage.service');
       $location = $injector.get('$location');
       detailRoute = $injector.get('horizon.app.core.detailRoute');
+      spinner = $injector.get('horizon.framework.widgets.modal-wait-spinner.service');
     }));
 
     it('navigates to the cluster detail page on the node groups tab', function() {
@@ -39,6 +40,14 @@
       expect($location.path).toHaveBeenCalledWith(
         '/' + detailRoute + 'OS::Magnum::Cluster/abc123');
       expect($location.search).toHaveBeenCalledWith('tab', 'nodegroups');
+    });
+
+    it('shows the wait spinner before navigating', function() {
+      spyOn(spinner, 'showModalSpinner');
+
+      service.perform({id: 'abc123'});
+
+      expect(spinner.showModalSpinner).toHaveBeenCalled();
     });
 
     it('is always allowed', function() {

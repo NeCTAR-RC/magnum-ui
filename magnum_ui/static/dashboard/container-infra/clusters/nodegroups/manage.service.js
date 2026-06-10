@@ -34,10 +34,14 @@
     '$location',
     'horizon.app.core.detailRoute',
     'horizon.dashboard.container-infra.clusters.resourceType',
-    'horizon.framework.util.q.extensions'
+    'horizon.framework.util.i18n.gettext',
+    'horizon.framework.util.q.extensions',
+    'horizon.framework.widgets.modal-wait-spinner.service'
   ];
 
-  function manageNodegroupsService($location, detailRoute, resourceType, $qExtensions) {
+  function manageNodegroupsService(
+    $location, detailRoute, resourceType, gettext, $qExtensions, spinner
+  ) {
     var service = {
       initAction: initAction,
       perform: perform,
@@ -55,6 +59,12 @@
     // detail view opens on it (see ClusterNodegroupsController). This mirrors
     // the cluster name link (clustersService.urlFunction) plus the tab marker.
     function perform(cluster) {
+      // Loading the detail page (cluster lookup, then the tab's per-nodegroup
+      // fetches) can take a while, so show the global wait spinner straight
+      // away for feedback. RoutedDetailsViewController.loadData() dismisses it
+      // once the cluster has loaded; the Node Groups tab then shows its own
+      // in-table spinner while the node groups load.
+      spinner.showModalSpinner(gettext('Please Wait'));
       $location
         .path('/' + detailRoute + resourceType + '/' + cluster.id)
         .search('tab', 'nodegroups');
