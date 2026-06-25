@@ -60,7 +60,6 @@
       var k8sVersionTitleMap = [{value: '', name: k8sVersionPlaceholder}];
       var availabilityZoneTitleMap = [{value: '', name: availabilityZonePlaceholder}];
       var networkDriverTitleMap = [{value: '', name: networkDriverPlaceholder}];
-      var keypairsTitleMap = [{value: '', name: gettext('Choose a Keypair')}];
       var masterFlavorTitleMap = [{value: '',
         name: gettext('Choose a Flavor for the Control Plane nodes')}];
       var workerFlavorTitleMap = [{value: '',
@@ -83,7 +82,6 @@
           'k8s_version': { type: 'string' },
           'availability_zone': { type: 'string' },
           'network_driver': { type: 'string' },
-          'keypair': { type: 'string' },
           'addons': {
             type: 'array',
             items: { type: 'object' },
@@ -219,13 +217,6 @@
                     {
                       type: 'template',
                       templateUrl: basePath + 'clusters/workflow/cluster-template.html'
-                    },
-                    {
-                      key: 'keypair',
-                      type: 'select',
-                      title: gettext('Keypair'),
-                      titleMap: keypairsTitleMap,
-                      required: true,
                     }
                   ]
                 }
@@ -355,7 +346,6 @@
           k8s_version: '',
           availability_zone: '',
           network_driver: '',
-          keypair: '',
           addons: [],
 
           master_count: null,
@@ -404,21 +394,6 @@
           } else if (nodeCount > model.max_node_count) {
             model.max_node_count = nodeCount;
           }
-        }
-      }
-
-      function onGetKeypairs(response) {
-        var items = response.data.items;
-
-        angular.forEach(items, function(item) {
-          keypairsTitleMap.push({
-            value: item.keypair.name,
-            name: item.keypair.name
-          });
-        });
-
-        if (items.length === 1) {
-          model.keypair = items[0].keypair.name;
         }
       }
 
@@ -583,7 +558,6 @@
       // with a form configuration object.
       return $q.all([
         magnum.getClusterTemplates().then(onGetClusterTemplates),
-        nova.getKeypairs().then(onGetKeypairs),
         magnum.getAddons().then(onGetAddons),
         nova.getFlavors(false, false).then(onGetFlavors),
         magnum.getIngressControllers().then(onGetIngressControllers)

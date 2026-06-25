@@ -18,7 +18,7 @@
   'use strict';
 
   describe('horizon.dashboard.container-infra.clusters.workflow', function() {
-    var workflow, magnum, nova, $scope, $q, $timeout, deferred, keyDeferred,
+    var workflow, magnum, nova, $scope, $q, $timeout, deferred,
       controllersDeferred, controllersResponse, addonsResponse,
       addonDeferred, templatesDeferred;
 
@@ -38,9 +38,6 @@
 
       deferred = $q.defer();
       deferred.resolve({data:{items:{1:{name:1},2:{name:2}}}});
-
-      keyDeferred = $q.defer();
-      keyDeferred.resolve({data:{items:{1:{keypair:{name:1}},2:{keypair:{name:2}}}}});
 
       controllersResponse = {controllers:[
         {name: 'Controller1', labels:{ingress_controller:'ic1'}},
@@ -75,7 +72,6 @@
       spyOn(magnum, 'getIngressControllers').and.returnValue(controllersDeferred.promise);
       spyOn(magnum, 'getAddons').and.returnValue(addonDeferred.promise);
       spyOn(nova, 'getFlavors').and.returnValue(deferred.promise);
-      spyOn(nova, 'getKeypairs').and.returnValue(keyDeferred.promise);
     }));
 
     function initWorkflow() {
@@ -89,7 +85,7 @@
       return titleMap.map(function(option) { return option.value; });
     }
 
-    // Details tab items: [name, k8sVersion, availabilityZone, networkDriver, summary, keypair]
+    // Details tab items: [name, k8sVersion, availabilityZone, networkDriver, summary]
     function detailsItems(config) {
       return config.form[0].tabs[0].items[0].items;
     }

@@ -23,7 +23,6 @@
         name: '',
         cluster_template_id: '',
         availability_zone: '',
-        keypair: '',
         addons: [],
 
         master_count: null,
@@ -135,7 +134,6 @@
 
     it('should override some model default properties by values from ' +
       'retrieved cluster template', function() {
-      templateResponse.keypair_id = 1;
       templateResponse.master_count = 1;
       templateResponse.master_flavor_id = 'ABC';
       templateResponse.node_count = 1;
@@ -145,7 +143,6 @@
       model.cluster_template_id = '99'; // Triggers business logic revalidation
       $scope.$apply();
 
-      expect(model.keypair).toBe(1);
       expect(model.master_count).toBe(1);
       expect(model.master_flavor_id).toEqual('ABC');
       expect(model.node_count).toBe(1);
@@ -156,13 +153,11 @@
       'from retrieved cluster template', function() {
       var model = $scope.model;
 
-      model.keypair = 99;
       model.master_count = 99;
       model.master_flavor_id = 'XYZ';
       model.node_count = 99;
       model.flavor_id = 'XYZ';
 
-      templateResponse.keypair_id = 1;
       templateResponse.master_count = 1;
       templateResponse.master_flavor_id = 'ABC';
       templateResponse.node_count = 1;
@@ -171,7 +166,6 @@
       model.cluster_template_id = '99'; // Triggers business logic revalidation
       $scope.$apply();
 
-      expect(model.keypair).toBe(99);
       expect(model.master_count).toBe(99);
       expect(model.master_flavor_id).toEqual('XYZ');
       expect(model.node_count).toBe(99);

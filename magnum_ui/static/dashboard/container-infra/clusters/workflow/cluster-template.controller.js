@@ -47,8 +47,7 @@
         public: "",
         registry_enabled: "",
         tls_disabled: "",
-        apiserver_port: "",
-        keypair_id: ""
+        apiserver_port: ""
       };
     }
 
@@ -57,7 +56,6 @@
     function loadClusterTemplate(id, old) {
       if (id !== old) {
         if (id === '' || typeof id === 'undefined') {
-          $scope.model.keypair = "";
           init();
         } else {
           magnum.getClusterTemplate(id).then(onGetClusterTemplate);
@@ -79,7 +77,6 @@
       // Only alter the model if the value is default and exists in the response
       // Warning: This is loosely coupled with default states.
       // Sets response.key -> model.key
-      setResponseAsDefaultIfUnset('keypair_id', 'keypair');
       setResponseAsDefaultIfUnset('master_count', 'master_count');
       setResponseAsDefaultIfUnset('master_flavor_id', 'master_flavor_id');
       setResponseAsDefaultIfUnset('node_count', 'node_count');

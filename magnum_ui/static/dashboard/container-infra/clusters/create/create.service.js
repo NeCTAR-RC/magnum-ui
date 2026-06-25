@@ -98,7 +98,6 @@
         // Form fields
         name: model.name,
         cluster_template_id: model.cluster_template_id,
-        keypair: model.keypair,
         labels: requestLabels,
         master_lb_enabled: model.master_lb_enabled
       };
