@@ -22,6 +22,7 @@ from horizon.utils.memoized import memoized
 from openstack_dashboard.api import base
 
 from magnumclient.common import utils as client_utils
+from magnumclient import exceptions as magnumclient_exc
 from magnumclient.v1 import certificates
 from magnumclient.v1 import client as magnum_client
 from magnumclient.v1 import cluster_templates
@@ -42,7 +43,9 @@ CLUSTER_CREATE_LABELS = ('etcd_volume_size', 'etcd_blockdevice_volume_type')
 NODEGROUP_CREATE_ATTRS = nodegroups.CREATION_ATTRIBUTES
 NODEGROUP_UPDATE_ALLOWED_PROPERTIES = set(
     ['/min_node_count', '/max_node_count'])
-DEFAULT_API_VERSION = '1.10'
+# The nodegroup node_labels/node_taints fields require API 1.13, so request
+# the highest microversion the server supports rather than pinning one.
+DEFAULT_API_VERSION = 'latest'
 
 
 def _cleanup_params(attrs, create, **params):
@@ -69,6 +72,44 @@ def _cleanup_params(attrs, create, **params):
             else:
                 args["labels"] = value
     return args
+
+
+def _parse_node_labels(value):
+    """Parse a 'KEY1=VALUE1,KEY2=VALUE2' string into the node_labels dict."""
+    if not value:
+        return {}
+    if isinstance(value, dict):
+        return {key: str(val) for key, val in value.items()}
+    try:
+        return client_utils.handle_labels([value])
+    except magnumclient_exc.CommandError as e:
+        raise exceptions.BadRequest(str(e))
+
+
+NODE_TAINT_EFFECTS = ('NoSchedule', 'PreferNoSchedule', 'NoExecute')
+
+
+def _parse_node_taints(value):
+    """Parse a 'KEY[=VALUE]:EFFECT,...' string into the node_taints list.
+
+    Mirrors magnumclient's handle_taints() (which only newer client
+    releases provide), so parsing does not depend on the installed
+    client version.
+    """
+    if not value:
+        return []
+    if isinstance(value, list):
+        return value
+    taints = []
+    for raw in value.replace(';', ',').split(','):
+        head, sep, effect = raw.rpartition(':')
+        key, _unused, val = head.partition('=')
+        if not sep or not key or effect not in NODE_TAINT_EFFECTS:
+            raise exceptions.BadRequest(
+                'node taints must be KEY[=VALUE]:EFFECT where EFFECT is one '
+                'of %s, not %s' % (', '.join(NODE_TAINT_EFFECTS), raw))
+        taints.append({'key': key, 'value': val, 'effect': effect})
+    return taints
 
 
 def _create_patches(old, new):
@@ -329,6 +370,10 @@ def nodegroup_show(request, cluster_id, nodegroup_id):
 
 def nodegroup_create(request, cluster_id, **kwargs):
     kwargs.setdefault('role', 'worker')
+    # node_labels/node_taints arrive as CLI-style strings; parse them before
+    # the generic cleanup below stringifies them.
+    node_labels = _parse_node_labels(kwargs.pop('node_labels', None))
+    node_taints = _parse_node_taints(kwargs.pop('node_taints', None))
     args = _cleanup_params(NODEGROUP_CREATE_ATTRS, True, **kwargs)
     # Magnum stores label values as strings. Forward labels only when supplied
     # and merge them over the labels inherited from the cluster template.
@@ -339,24 +384,57 @@ def nodegroup_create(request, cluster_id, **kwargs):
     else:
         args.pop('labels', None)
         args.pop('merge_labels', None)
+    if node_labels:
+        args['node_labels'] = node_labels
+    if node_taints:
+        args['node_taints'] = node_taints
     return magnumclient(request).nodegroups.create(cluster_id, **args)
 
 
 def nodegroup_update(request, cluster_id, nodegroup_id, **kwargs):
+    # node_labels/node_taints arrive as CLI-style strings and are diffed
+    # against the current values separately from the generic diff below,
+    # which stringifies values in a way the API does not accept for them.
+    node_labels = kwargs.pop('node_labels', None)
+    node_taints = kwargs.pop('node_taints', None)
+
+    nodegroup = magnumclient(request).nodegroups.get(cluster_id, nodegroup_id)
+
     new = _cleanup_params(NODEGROUP_CREATE_ATTRS, True, **kwargs)
-    old = magnumclient(request).nodegroups.get(cluster_id,
-                                               nodegroup_id).to_dict()
-    old = _cleanup_params(NODEGROUP_CREATE_ATTRS, False, **old)
+    old = _cleanup_params(NODEGROUP_CREATE_ATTRS, False,
+                          **nodegroup.to_dict())
     patch = _create_patches(old, new)
 
-    # Only the autoscaling bounds may be updated from the UI.
+    # Only the autoscaling bounds may be updated via the generic diff, and
+    # only with new values: a caller updating other fields does not send the
+    # bounds at all, which the diff would otherwise turn into remove ops.
     patch = [d for d in patch
-             if d['path'] in NODEGROUP_UPDATE_ALLOWED_PROPERTIES]
+             if d['path'] in NODEGROUP_UPDATE_ALLOWED_PROPERTIES and
+             d['op'] != 'remove']
     # _create_patches stringifies every value, but Magnum requires the node
     # counts as integers, so coerce the numeric bounds back to int.
     for p in patch:
         if 'value' in p:
             p['value'] = int(p['value'])
+
+    # The Magnum API's JSON patch value field only accepts text or int, so
+    # dict/list values are sent as their string representation and
+    # deserialized server-side (see magnum.api.utils.apply_jsonpatch). An
+    # empty value replaces the field with an empty collection.
+    if node_labels is not None:
+        labels = _parse_node_labels(node_labels)
+        if labels != (getattr(nodegroup, 'node_labels', None) or {}):
+            patch.append({'op': 'replace', 'path': '/node_labels',
+                          'value': str(labels)})
+    if node_taints is not None:
+        taints = _parse_node_taints(node_taints)
+        if taints != (getattr(nodegroup, 'node_taints', None) or []):
+            patch.append({'op': 'replace', 'path': '/node_taints',
+                          'value': str(taints)})
+
+    # Nothing changed; skip the API call rather than send an empty patch.
+    if not patch:
+        return nodegroup
     return magnumclient(request).nodegroups.update(cluster_id, nodegroup_id,
                                                    patch)
 

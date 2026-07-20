@@ -36,12 +36,14 @@
     'horizon.dashboard.container-infra.clusters.nodegroups.create.service',
     'horizon.dashboard.container-infra.clusters.nodegroups.resize.service',
     'horizon.dashboard.container-infra.clusters.nodegroups.edit.service',
+    'horizon.dashboard.container-infra.clusters.nodegroups.edit-labels-taints.service',
     'horizon.dashboard.container-infra.clusters.nodegroups.delete.service'
   ];
 
   function ClusterNodegroupsController(
     $scope, $element, $location, $timeout,
-    magnum, createService, resizeService, editService, deleteService
+    magnum, createService, resizeService, editService, editLabelsTaintsService,
+    deleteService
   ) {
     var ctrl = this;
 
@@ -72,8 +74,12 @@
     ctrl.createNodegroup = function() { run(createService); };
     ctrl.resizeNodegroup = function(nodegroup) { run(resizeService, nodegroup); };
     ctrl.editNodegroup = function(nodegroup) { run(editService, nodegroup); };
+    ctrl.editNodegroupLabelsTaints = function(nodegroup) {
+      run(editLabelsTaintsService, nodegroup);
+    };
     ctrl.deleteNodegroup = function(nodegroup) { run(deleteService, nodegroup); };
     ctrl.autoscalingEnabled = autoscalingEnabled;
+    ctrl.labelsTaintsEditable = labelsTaintsEditable;
 
     $scope.context.loadPromise.then(function(response) {
       ctrl.actionsEnabled = ALLOWED_STATUSES.indexOf(response.data.status) > -1;
@@ -111,6 +117,13 @@
     function autoscalingEnabled(nodegroup) {
       return labelTrue(ctrl.clusterLabels) ||
         labelTrue(nodegroup && nodegroup.labels);
+    }
+
+    // Magnum rejects node labels and taints on master nodegroups (control
+    // plane nodes have kubeadm-managed taints), so only offer the edit
+    // action for the other roles.
+    function labelsTaintsEditable(nodegroup) {
+      return !!nodegroup && nodegroup.role !== 'master';
     }
 
     // Magnum stores label values as strings, and Python's str(True) yields the

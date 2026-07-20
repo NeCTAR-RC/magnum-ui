@@ -17,7 +17,8 @@
 
   describe('ClusterNodegroupsController', function() {
     var $controller, $scope, $q, $location, $timeout, $element, magnum,
-      createService, resizeService, editService, deleteService;
+      createService, resizeService, editService, editLabelsTaintsService,
+      deleteService;
 
     beforeEach(module('horizon.app.core'));
     beforeEach(module('horizon.framework'));
@@ -38,6 +39,8 @@
         'horizon.dashboard.container-infra.clusters.nodegroups.resize.service');
       editService = $injector.get(
         'horizon.dashboard.container-infra.clusters.nodegroups.edit.service');
+      editLabelsTaintsService = $injector.get(
+        'horizon.dashboard.container-infra.clusters.nodegroups.edit-labels-taints.service');
       deleteService = $injector.get(
         'horizon.dashboard.container-infra.clusters.nodegroups.delete.service');
     }));
@@ -112,12 +115,26 @@
       expect(ctrl.autoscalingEnabled({})).toBe(false);
     });
 
+    it('disallows editing labels and taints on master nodegroups', function() {
+      var ctrl = createController();
+      $scope.$apply();
+      // Magnum rejects node labels/taints on master nodegroups; default and
+      // extra worker nodegroups are both editable.
+      expect(ctrl.labelsTaintsEditable({role: 'master', is_default: true})).toBe(false);
+      expect(ctrl.labelsTaintsEditable({role: 'master', is_default: false})).toBe(false);
+      expect(ctrl.labelsTaintsEditable({role: 'worker', is_default: true})).toBe(true);
+      expect(ctrl.labelsTaintsEditable({role: 'worker', is_default: false})).toBe(true);
+      expect(ctrl.labelsTaintsEditable({role: 'custom-role'})).toBe(true);
+    });
+
     it('runs each action and reloads the list on success', function() {
       var actionDeferred = $q.defer();
       actionDeferred.resolve();
       spyOn(createService, 'perform').and.returnValue(actionDeferred.promise);
       spyOn(resizeService, 'perform').and.returnValue(actionDeferred.promise);
       spyOn(editService, 'perform').and.returnValue(actionDeferred.promise);
+      spyOn(editLabelsTaintsService, 'perform')
+        .and.returnValue(actionDeferred.promise);
       spyOn(deleteService, 'perform').and.returnValue(actionDeferred.promise);
 
       var ctrl = createController();
@@ -128,6 +145,7 @@
       ctrl.createNodegroup();
       ctrl.resizeNodegroup(ng);
       ctrl.editNodegroup(ng);
+      ctrl.editNodegroupLabelsTaints(ng);
       ctrl.deleteNodegroup(ng);
       $scope.$apply();
 
@@ -137,9 +155,11 @@
       expect(createArgs[2]).toBe($scope);
       expect(resizeService.perform).toHaveBeenCalledWith('c1', ng, $scope);
       expect(editService.perform).toHaveBeenCalledWith('c1', ng, $scope);
+      expect(editLabelsTaintsService.perform)
+        .toHaveBeenCalledWith('c1', ng, $scope);
       expect(deleteService.perform).toHaveBeenCalledWith('c1', ng, $scope);
       // Each successful action triggers a reload.
-      expect(magnum.getNodegroups.calls.count()).toBe(4);
+      expect(magnum.getNodegroups.calls.count()).toBe(5);
     });
 
     it('activates the node groups tab when deep-linked with ?tab=nodegroups', function() {

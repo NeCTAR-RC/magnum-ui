@@ -92,6 +92,36 @@ class MagnumApiTestCase(test.TestCase):
         self.assertTrue(sent['merge_labels'])
 
     @mock.patch.object(magnum, 'magnumclient')
+    def test_nodegroup_create_parses_node_labels_and_taints(
+            self, mock_magnumclient):
+        create = mock_magnumclient.return_value.nodegroups.create
+
+        magnum.nodegroup_create(
+            mock.Mock(), 'c1', name='ng1', flavor_id='m1.small', node_count=2,
+            node_labels='workload=gpu,owner=ops',
+            node_taints='gpu=true:NoSchedule,dedicated:NoExecute')
+
+        sent = create.call_args.kwargs
+        # The CLI-style strings are parsed into the structured API fields.
+        self.assertEqual(sent['node_labels'],
+                         {'workload': 'gpu', 'owner': 'ops'})
+        self.assertEqual(sent['node_taints'], [
+            {'key': 'gpu', 'value': 'true', 'effect': 'NoSchedule'},
+            {'key': 'dedicated', 'value': '', 'effect': 'NoExecute'},
+        ])
+
+    @mock.patch.object(magnum, 'magnumclient')
+    def test_nodegroup_create_rejects_bad_taints(self, mock_magnumclient):
+        create = mock_magnumclient.return_value.nodegroups.create
+
+        self.assertRaises(
+            magnum.exceptions.BadRequest,
+            magnum.nodegroup_create,
+            mock.Mock(), 'c1', name='ng1', flavor_id='m1.small', node_count=2,
+            node_taints='gpu=true:Bogus')
+        create.assert_not_called()
+
+    @mock.patch.object(magnum, 'magnumclient')
     def test_nodegroup_list_detailed_fetches_each(self, mock_magnumclient):
         nodegroups = mock_magnumclient.return_value.nodegroups
         nodegroups.list.return_value = [
@@ -130,3 +160,64 @@ class MagnumApiTestCase(test.TestCase):
         self.assertEqual(values['/max_node_count'], 6)
         for op in patch:
             self.assertIsInstance(op['value'], int)
+
+    @mock.patch.object(magnum, 'magnumclient')
+    def test_nodegroup_update_node_labels_and_taints(self, mock_magnumclient):
+        nodegroups = mock_magnumclient.return_value.nodegroups
+        nodegroups.get.return_value = mock.Mock(**{
+            'to_dict.return_value': {
+                'name': 'ng1', 'min_node_count': 1, 'max_node_count': 3,
+            },
+            'node_labels': {'workload': 'cpu'},
+            'node_taints': [],
+        })
+
+        magnum.nodegroup_update(
+            mock.Mock(), 'c1', 'ng-id',
+            node_labels='workload=gpu',
+            node_taints='gpu=true:NoSchedule')
+
+        _c, _n, patch = nodegroups.update.call_args.args
+        # The values are sent string-serialised; the API deserializes them.
+        values = {op['path']: op['value'] for op in patch}
+        self.assertEqual(values['/node_labels'], str({'workload': 'gpu'}))
+        self.assertEqual(
+            values['/node_taints'],
+            str([{'key': 'gpu', 'value': 'true', 'effect': 'NoSchedule'}]))
+        for op in patch:
+            self.assertEqual(op['op'], 'replace')
+
+    @mock.patch.object(magnum, 'magnumclient')
+    def test_nodegroup_update_empty_node_labels_clears_field(
+            self, mock_magnumclient):
+        nodegroups = mock_magnumclient.return_value.nodegroups
+        nodegroups.get.return_value = mock.Mock(**{
+            'to_dict.return_value': {'name': 'ng1'},
+            'node_labels': {'workload': 'gpu'},
+            'node_taints': [],
+        })
+
+        magnum.nodegroup_update(mock.Mock(), 'c1', 'ng-id', node_labels='')
+
+        _c, _n, patch = nodegroups.update.call_args.args
+        self.assertEqual(patch, [
+            {'op': 'replace', 'path': '/node_labels', 'value': str({})}])
+
+    @mock.patch.object(magnum, 'magnumclient')
+    def test_nodegroup_update_unchanged_skips_api_call(
+            self, mock_magnumclient):
+        nodegroups = mock_magnumclient.return_value.nodegroups
+        nodegroups.get.return_value = mock.Mock(**{
+            'to_dict.return_value': {'name': 'ng1'},
+            'node_labels': {'workload': 'gpu'},
+            'node_taints': [],
+        })
+
+        result = magnum.nodegroup_update(
+            mock.Mock(), 'c1', 'ng-id', node_labels='workload=gpu',
+            node_taints='')
+
+        # Nothing changed, so no patch is sent and the current nodegroup is
+        # returned unchanged.
+        nodegroups.update.assert_not_called()
+        self.assertEqual(result, nodegroups.get.return_value)

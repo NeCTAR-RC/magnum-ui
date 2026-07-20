@@ -51,6 +51,11 @@
                    ng-click="ctrl.autoscalingEnabled(ng) && ctrl.editNodegroup(ng); $event.preventDefault()"
                    translate>Edit Autoscaling</a>
               </li>
+              <li role="menuitem" ng-class="{disabled: !ctrl.labelsTaintsEditable(ng)}">
+                <a href=""
+                   ng-click="ctrl.labelsTaintsEditable(ng) && ctrl.editNodegroupLabelsTaints(ng); $event.preventDefault()"
+                   translate>Edit Labels &amp; Taints</a>
+              </li>
               <li role="menuitem" ng-class="{disabled: ng.is_default}">
                 <a href="" class="text-danger"
                    ng-click="ng.is_default || ctrl.deleteNodegroup(ng); $event.preventDefault()">

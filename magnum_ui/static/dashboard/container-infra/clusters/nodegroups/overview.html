@@ -89,6 +89,32 @@
   </div>
   <div class="row">
     <div class="col-md-6 detail">
+      <h3 translate>Kubernetes Node Labels</h3>
+      <hr>
+      <dl class="dl-horizontal" ng-if="ctrl.objLen(ctrl.nodegroup.node_labels) > 0">
+        <dt ng-repeat-start="(key, value) in ctrl.nodegroup.node_labels">{$ key $}</dt>
+        <dd ng-repeat-end>{$ value $}</dd>
+      </dl>
+      <span ng-if="ctrl.objLen(ctrl.nodegroup.node_labels) === 0" translate>
+        No node labels.
+      </span>
+    </div>
+    <div class="col-md-6 detail">
+      <h3 translate>Kubernetes Node Taints</h3>
+      <hr>
+      <dl class="dl-horizontal" ng-if="ctrl.objLen(ctrl.nodegroup.node_taints) > 0">
+        <dt ng-repeat-start="taint in ctrl.nodegroup.node_taints track by $index">
+          {$ taint.key $}
+        </dt>
+        <dd ng-repeat-end>{$ (taint.value ? taint.value + ':' : '') + taint.effect $}</dd>
+      </dl>
+      <span ng-if="ctrl.objLen(ctrl.nodegroup.node_taints) === 0" translate>
+        No node taints.
+      </span>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-md-6 detail">
       <h3 translate>Record</h3>
       <hr>
       <dl class="dl-horizontal">

@@ -30,13 +30,14 @@
     '$q',
     'horizon.app.core.openstack-service-api.magnum',
     'horizon.app.core.openstack-service-api.nova',
+    'horizon.dashboard.container-infra.clusters.nodegroups.labels-taints.service',
     'horizon.framework.util.i18n.gettext',
     'horizon.framework.widgets.form.ModalFormService',
     'horizon.framework.widgets.toast.service',
     'horizon.framework.widgets.modal-wait-spinner.service'
   ];
 
-  function createService($q, magnum, nova, gettext, modal, toast, spinnerModal) {
+  function createService($q, magnum, nova, labelsTaints, gettext, modal, toast, spinnerModal) {
     return {
       perform: perform
     };
@@ -64,7 +65,9 @@
           max_node_count: 1,
           boot_from_volume: false,
           boot_volume_size: null,
-          boot_volume_type: ''
+          boot_volume_type: '',
+          node_labels: '',
+          node_taints: ''
         };
 
         var config = {
@@ -80,7 +83,9 @@
               'max_node_count': { type: 'number', minimum: 1 },
               'boot_from_volume': { type: 'boolean' },
               'boot_volume_size': { type: 'number', minimum: 1 },
-              'boot_volume_type': { type: 'string' }
+              'boot_volume_type': { type: 'string' },
+              'node_labels': { type: 'string' },
+              'node_taints': { type: 'string' }
             }
           },
           form: [
@@ -179,7 +184,9 @@
                           description: gettext('Optional. If left blank, the standard ' +
                             'volume type is used.'),
                           condition: 'model.boot_from_volume == true'
-                        }
+                        },
+                        labelsTaints.labelsFormField(),
+                        labelsTaints.taintsFormField()
                       ]
                     }
                   ]
@@ -228,6 +235,12 @@
         if (model.boot_volume_type) {
           params.labels.boot_volume_type = model.boot_volume_type;
         }
+      }
+      if (model.node_labels) {
+        params.node_labels = model.node_labels;
+      }
+      if (model.node_taints) {
+        params.node_taints = model.node_taints;
       }
       return magnum.createNodegroup(clusterId, params).then(function() {
         toast.add('success', gettext('Node group is being created.'));

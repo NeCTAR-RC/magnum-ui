@@ -127,6 +127,28 @@
         });
       });
 
+      it('sends node labels and taints when provided', function() {
+        service.perform('c1');
+        $scope.$apply();
+
+        modalConfig.model.name = 'ng1';
+        modalConfig.model.flavor_id = 'm1.small';
+        modalConfig.model.node_count = 2;
+        modalConfig.model.node_labels = 'workload=gpu';
+        modalConfig.model.node_taints = 'gpu=true:NoSchedule';
+        openDeferred.resolve();
+        $scope.$apply();
+
+        expect(magnum.createNodegroup).toHaveBeenCalledWith('c1', {
+          name: 'ng1',
+          flavor_id: 'm1.small',
+          node_count: 2,
+          role: 'worker',
+          node_labels: 'workload=gpu',
+          node_taints: 'gpu=true:NoSchedule'
+        });
+      });
+
       it('sends boot-from-volume labels when enabled', function() {
         service.perform('c1');
         $scope.$apply();
