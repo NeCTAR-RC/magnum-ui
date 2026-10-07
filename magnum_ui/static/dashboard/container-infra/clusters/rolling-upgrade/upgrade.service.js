@@ -67,19 +67,32 @@
       var deferred = $q.defer();
       spinnerModal.showModalSpinner(gettext('Loading'));
 
-      var currentTemplateId;
-
       magnum.getCluster(selected.id).then(function(response) {
         var cluster = response.data;
 
         formModel = getFormModelDefaults();
         formModel.id = selected.id;
 
-        currentTemplateId = cluster.cluster_template_id;
+        // Templates are fetched individually by id rather than taken from the
+        // template list: Magnum omits hidden templates from the list for
+        // non-admin users, and the cluster's current template is typically
+        // hidden once a newer one is published.
+        return getTemplate(cluster.cluster_template_id);
+      }).then(function(current) {
+        if (!current) {
+          // The error has already been reported by the API service.
+          return $q.reject();
+        }
 
-        return magnum.getClusterTemplates();
-      }).then(function(response) {
-        buildVersionTitleMap(response.data.items);
+        // The cluster's current cluster template lists the templates it can be
+        // upgraded to in its `upgrade_targets` label. An empty/missing label
+        // means there are no targets.
+        var targetIds = parseUpgradeTargets(
+          current.labels ? current.labels.upgrade_targets : null);
+
+        return $q.all(targetIds.map(getTemplate));
+      }).then(function(targets) {
+        buildVersionTitleMap(targets);
 
         modalConfig = createModalConfig();
 
@@ -88,6 +101,13 @@
 
         $scope.model = formModel;
       }).catch(onError);
+
+      // Resolves to the template, or null when it could not be retrieved.
+      function getTemplate(id) {
+        return magnum.getClusterTemplate(id).then(function(response) {
+          return response && response.data ? response.data : null;
+        });
+      }
 
       function buildVersionTitleMap(templates) {
         versionTitleMap = [
@@ -98,27 +118,7 @@
           }
         ];
 
-        if (!templates) {
-          isLatestTemplate = true;
-          return;
-        }
-
-        // Index the templates by id so upgrade target ids can be resolved to
-        // their Kubernetes versions.
-        var templatesById = {};
-        templates.forEach(function(template) {
-          templatesById[template.id] = template;
-        });
-
-        // The cluster's current cluster template lists the templates it can be
-        // upgraded to in its `upgrade_targets` label. An empty/missing label
-        // means there are no targets.
-        var current = templatesById[currentTemplateId];
-        var targetIds = parseUpgradeTargets(
-          current && current.labels ? current.labels.upgrade_targets : null);
-
-        targetIds.forEach(function(targetId) {
-          var target = templatesById[targetId];
+        templates.forEach(function(target) {
           // The Kubernetes version is encoded in the template name, not a label.
           var parsed = target ? utils.parseTemplateName(target.name) : null;
           if (parsed) {

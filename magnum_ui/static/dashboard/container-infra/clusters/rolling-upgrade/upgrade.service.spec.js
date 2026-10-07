@@ -75,20 +75,23 @@
 
         // The current cluster template lists its upgrade targets by id in the
         // `upgrade_targets` label. The Kubernetes version is encoded in the
-        // template name. `template-other` has a higher version but is not a
-        // listed target, so it must be excluded.
+        // template name. Templates are fetched individually by id, since the
+        // current template is hidden and so absent from the template list for
+        // non-admin users.
         var mockClusterTemplates = {
-          data: {
-            items: [
-              {
-                id: 'template-current',
-                name: 'kubernetes-v1.3.4-melbourne-qh2-calico-v1',
-                labels: { upgrade_targets: 'template-new,template-newer' }
-              },
-              { id: 'template-new', name: 'kubernetes-v1.4.1-melbourne-qh2-calico-v1' },
-              { id: 'template-newer', name: 'kubernetes-v1.5.0-melbourne-qh2-calico-v1' },
-              { id: 'template-other', name: 'kubernetes-v1.9.9-melbourne-qh2-calico-v1' }
-            ]
+          'template-current': {
+            id: 'template-current',
+            name: 'kubernetes-v1.3.4-melbourne-qh2-calico-v1',
+            hidden: true,
+            labels: { upgrade_targets: 'template-new,template-newer' }
+          },
+          'template-new': {
+            id: 'template-new',
+            name: 'kubernetes-v1.4.1-melbourne-qh2-calico-v1'
+          },
+          'template-newer': {
+            id: 'template-newer',
+            name: 'kubernetes-v1.5.0-melbourne-qh2-calico-v1'
           }
         };
 
@@ -96,9 +99,9 @@
         deferred.resolve(mockClusterDetails);
         spyOn(magnum, 'getCluster').and.returnValue(deferred.promise);
 
-        deferred = $q.defer();
-        deferred.resolve(mockClusterTemplates);
-        spyOn(magnum, 'getClusterTemplates').and.returnValue(deferred.promise);
+        spyOn(magnum, 'getClusterTemplate').and.callFake(function(id) {
+          return $q.when({data: mockClusterTemplates[id]});
+        });
 
         service.perform(selected, $scope);
 
@@ -107,7 +110,11 @@
           expect(spinnerModal.showModalSpinner).toHaveBeenCalled();
           expect(spinnerModal.hideModalSpinner).toHaveBeenCalled();
 
-          expect(magnum.getClusterTemplates).toHaveBeenCalled();
+          // The current template and each listed target are fetched by id.
+          expect(magnum.getClusterTemplate).toHaveBeenCalledWith('template-current');
+          expect(magnum.getClusterTemplate).toHaveBeenCalledWith('template-new');
+          expect(magnum.getClusterTemplate).toHaveBeenCalledWith('template-newer');
+          expect(magnum.getClusterTemplate.calls.count()).toBe(3);
 
           // Check if the form's model skeleton is correct
           expect(modalConfig.model.id).toBe(selected.id);
@@ -116,11 +123,9 @@
           expect(modalConfig.form).toBeDefined();
 
           // The two ids from `upgrade_targets` become options (plus the default
-          // placeholder); `template-other` is excluded despite its version.
+          // placeholder).
           var titleMap = modalConfig.form[0].titleMap;
           expect(titleMap.length).toBe(3);
-          expect(titleMap.map(function(o) { return o.value; }))
-            .not.toContain('template-other');
 
           // Options show the Kubernetes version but submit the template id, and
           // are ordered with the newest version first.
@@ -152,16 +157,11 @@
           }
         };
 
-        var mockClusterTemplates = {
+        var mockClusterTemplate = {
           data: {
-            items: [
-              {
-                id: 'template-current',
-                name: 'kubernetes-v1.4.1-melbourne-qh2-calico-v1',
-                labels: { upgrade_targets: '' }
-              },
-              { id: 'template-old', name: 'kubernetes-v1.2.0-melbourne-qh2-calico-v1' }
-            ]
+            id: 'template-current',
+            name: 'kubernetes-v1.4.1-melbourne-qh2-calico-v1',
+            labels: { upgrade_targets: '' }
           }
         };
 
@@ -170,15 +170,89 @@
         spyOn(magnum, 'getCluster').and.returnValue(deferred.promise);
 
         deferred = $q.defer();
-        deferred.resolve(mockClusterTemplates);
-        spyOn(magnum, 'getClusterTemplates').and.returnValue(deferred.promise);
+        deferred.resolve(mockClusterTemplate);
+        spyOn(magnum, 'getClusterTemplate').and.returnValue(deferred.promise);
 
         service.perform(selected, $scope);
 
         $timeout(function() {
+          // Only the current template is fetched; there are no targets to look up.
+          expect(magnum.getClusterTemplate.calls.count()).toBe(1);
+
           // Only the placeholder option remains and the select is read only.
           expect(modalConfig.form[0].titleMap.length).toBe(1);
           expect(modalConfig.form[0].readonly).toBe(true);
+        }, 0);
+
+        $timeout.flush();
+        $scope.$apply();
+      }));
+
+    it('should skip upgrade targets that cannot be retrieved',
+      inject(function($timeout) {
+        var mockClusterDetails = {
+          data: {
+            cluster_template_id: 'template-current'
+          }
+        };
+
+        var mockClusterTemplates = {
+          'template-current': {
+            id: 'template-current',
+            name: 'kubernetes-v1.3.4-melbourne-qh2-calico-v1',
+            labels: { upgrade_targets: 'template-missing,template-new' }
+          },
+          'template-new': {
+            id: 'template-new',
+            name: 'kubernetes-v1.4.1-melbourne-qh2-calico-v1'
+          }
+        };
+
+        deferred = $q.defer();
+        deferred.resolve(mockClusterDetails);
+        spyOn(magnum, 'getCluster').and.returnValue(deferred.promise);
+
+        // The API service swallows request errors and resolves to undefined.
+        spyOn(magnum, 'getClusterTemplate').and.callFake(function(id) {
+          return $q.when(mockClusterTemplates[id] ? {data: mockClusterTemplates[id]} : undefined);
+        });
+
+        service.perform(selected, $scope);
+
+        $timeout(function() {
+          expect(modal.open).toHaveBeenCalled();
+
+          // The missing target is dropped; the remaining one is still offered.
+          var titleMap = modalConfig.form[0].titleMap;
+          expect(titleMap.length).toBe(2);
+          expect(titleMap[1].value).toBe('template-new');
+          expect(modalConfig.form[0].readonly).toBe(false);
+        }, 0);
+
+        $timeout.flush();
+        $scope.$apply();
+      }));
+
+    it('should not open the modal when the current template cannot be retrieved',
+      inject(function($timeout) {
+        var mockClusterDetails = {
+          data: {
+            cluster_template_id: 'template-current'
+          }
+        };
+
+        deferred = $q.defer();
+        deferred.resolve(mockClusterDetails);
+        spyOn(magnum, 'getCluster').and.returnValue(deferred.promise);
+
+        // The API service swallows request errors and resolves to undefined.
+        spyOn(magnum, 'getClusterTemplate').and.returnValue($q.when(undefined));
+
+        service.perform(selected, $scope);
+
+        $timeout(function() {
+          expect(modal.open).not.toHaveBeenCalled();
+          expect(spinnerModal.hideModalSpinner).toHaveBeenCalled();
         }, 0);
 
         $timeout.flush();
@@ -190,7 +264,7 @@
         deferred = $q.defer();
         deferred.reject();
         spyOn(magnum, 'getCluster').and.returnValue(deferred.promise);
-        spyOn(magnum, 'getClusterTemplates').and.returnValue(deferred.promise);
+        spyOn(magnum, 'getClusterTemplate').and.returnValue(deferred.promise);
 
         service.perform(selected, $scope);
 
